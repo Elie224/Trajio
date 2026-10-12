@@ -1,0 +1,72 @@
+# Trajio - pile de developpement.
+# Usage : docker compose up -d
+#
+# Les secrets proviennent du fichier .env racine (jamais commite).
+# Pour un environnement de production, remplacez les valeurs par developpement
+# et branchez un gestionnaire de secrets : voir docs/security.md.
+
+name: trajio
+
+services:
+  db:
+    image: postgis/postgis:16-3.5
+    container_name: trajio-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-trajio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-trajio}
+      POSTGRES_DB: ${POSTGRES_DB:-trajio}
+      # Les clients doivent respecter le fuseau Europe/Paris.
+      TZ: Europe/Paris
+      PGTZ: Europe/Paris
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - trajio_pgdata:/var/lib/postgresql/data
+      - ./infrastructure/db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-trajio} -d ${POSTGRES_DB:-trajio}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: trajio-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      DEBUG: ${DEBUG:-false}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER:-trajio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-trajio}
+      POSTGRES_DB: ${POSTGRES_DB:-trajio}
+      SQL_ECHO: ${SQL_ECHO:-false}
+      SECRET_KEY: ${SECRET_KEY:-dev-insecure-secret-change-me}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+    ports:
+      - "${API_PORT:-8000}:8000"
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+    container_name: trajio-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+
+volumes:
+  trajio_pgdata:

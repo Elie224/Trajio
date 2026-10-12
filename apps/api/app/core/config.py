@@ -1,0 +1,104 @@
+"""Application settings, loaded from environment variables and .env files.
+
+Single source of truth for every runtime knob. Secrets are never hardcoded
+here: they are resolved from the environment, with development-only defaults.
+"""
+
+from functools import lru_cache
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """Runtime configuration for the Trajio API."""
+
+    model_config = SettingsConfigDict(
+        env_file=("../../.env", ".env"),
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
+    # -- Application ------------------------------------------------------
+    PROJECT_NAME: str = "Trajio API"
+    APP_ENV: str = "development"
+    DEBUG: bool = False
+    API_V1_PREFIX: str = "/api/v1"
+
+    # -- Server -----------------------------------------------------------
+    HOST: str = "0.0.0.0"
+    PORT: int = 8000
+
+    # -- Database ---------------------------------------------------------
+    POSTGRES_USER: str = "trajio"
+    POSTGRES_PASSWORD: str = "trajio"
+    POSTGRES_HOST: str = "localhost"
+    POSTGRES_PORT: int = 5432
+    POSTGRES_DB: str = "trajio"
+    # Full override. When empty, it is derived from the POSTGRES_* parts above.
+    DATABASE_URL: str = ""
+    SQL_ECHO: bool = False
+    DB_POOL_SIZE: int = 5
+    DB_MAX_OVERFLOW: int = 10
+
+    # -- Security ---------------------------------------------------------
+    # MUST be overridden in every non-development environment.
+    SECRET_KEY: str = "dev-insecure-secret-change-me"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+
+    # -- CORS -------------------------------------------------------------
+    # Comma-separated list, to stay friendly to plain .env files.
+    CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
+
+    # -- Geospatial defaults ---------------------------------------------
+    DEFAULT_SEARCH_RADIUS_M: int = 5000
+    MAX_SEARCH_RADIUS_M: int = 20000
+    # Extra distance a driver accepts in order to serve a passenger.
+    MAX_DETOUR_RATIO: float = 0.30
+    MAX_DETOUR_MINUTES: int = 20
+
+    # -- Derived values ---------------------------------------------------
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+
+    @property
+    def async_database_url(self) -> str:
+        """SQLAlchemy URL for the async driver used by the application."""
+        if self.DATABASE_URL:
+            return (
+                self.DATABASE_URL.replace("postgres://", "postgresql+asyncpg://")
+                .replace("postgresql://", "postgresql+asyncpg://")
+            )
+        return (
+            f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
+            f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        )
+
+    @property
+    def sync_database_url(self) -> str:
+        """SQLAlchemy URL for the sync driver (Alembic, maintenance scripts)."""
+        if self.DATABASE_URL:
+            return (
+                self.DATABASE_URL.replace("postgres://", "postgresql+psycopg://")
+                .replace("postgresql+asyncpg://", "postgresql+psycopg://")
+            )
+        return (
+            f"postgresql+psycopg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
+            f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        )
+
+    @property
+    def is_production(self) -> bool:
+        return self.APP_ENV.lower() in {"production", "prod"}
+
+
+@lru_cache
+def get_settings() -> Settings:
+    """Cached settings singleton, used as a FastAPI dependency."""
+    return Settings()
+
+
+settings = get_settings()
