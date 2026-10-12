@@ -1,0 +1,19 @@
+# Normalise line endings so the working tree matches .editorconfig, and so a
+# checkout on Windows does not produce a diff on every file.
+* text=auto eol=lf
+
+# Windows scripts must keep CRLF: PowerShell handles it best, and the file
+# extension is what makes Git stop converting them.
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+
+# Binary files, never touched by end-of-line conversion.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
