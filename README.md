@@ -156,6 +156,12 @@ developpement local.
 
 `.env` n'est jamais commit. Seul `.env.example` l'est.
 
+Note : Next.js ne lit que les fichiers d'environnement places dans
+`apps/web/`. Le script `start-web.ps1` reprend donc
+`NEXT_PUBLIC_API_BASE_URL` depuis le `.env` racine, ce qui evite de dupliquer
+la valeur. Pour un ajustement ponctuel en developpement, le fichier
+`apps/web/.env.local` (ignore par Git) reste disponible.
+
 ## Migrations
 
 Aucune migration n'existe encore : le schema est specifie dans

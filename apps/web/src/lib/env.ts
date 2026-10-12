@@ -6,8 +6,7 @@
  * Next.js.
  */
 
-function readPublicUrl(name: string, fallback: string): string {
-  const value = process.env[name];
+function readPublicUrl(value: string | undefined, fallback: string): string {
   if (!value || value.trim() === "") {
     return fallback;
   }
@@ -16,7 +15,7 @@ function readPublicUrl(name: string, fallback: string): string {
 
 export const env = {
   /** Base URL of the Trajio REST API, reachable from the browser. */
-  apiBaseUrl: readPublicUrl("NEXT_PUBLIC_API_BASE_URL", "http://localhost:8000"),
+  apiBaseUrl: readPublicUrl(process.env.NEXT_PUBLIC_API_BASE_URL, "http://localhost:8000"),
   /** Short human name shown in the UI. */
   appName: "Trajio",
 } as const;
