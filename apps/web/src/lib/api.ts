@@ -6,6 +6,7 @@
  */
 
 import { env } from "./env";
+import { parseRetryAfter } from "./retry-after";
 
 export type HealthPayload = {
   status: string;
@@ -18,11 +19,14 @@ export type HealthPayload = {
 
 export class ApiError extends Error {
   readonly status: number;
+  /** Seconds from the Retry-After header, or null if absent/unreadable. */
+  readonly retryAfter: number | null;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, retryAfter: number | null = null) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.retryAfter = retryAfter;
   }
 }
 
@@ -48,7 +52,7 @@ async function fetchJson<T>(path: string, init: RequestInit = {}): Promise<T> {
     } catch {
       // Ignore JSON parsing errors: keep generic message.
     }
-    throw new ApiError(message, response.status);
+    throw new ApiError(message, response.status, parseRetryAfter(response.headers.get("Retry-After")));
   }
 
   if (response.status === 204) {

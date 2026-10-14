@@ -1,19 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardTitle } from "@/components/ui/Card";
 import { Container } from "@/components/ui/Container";
-import { login } from "@/lib/api";
+import { ApiError, login } from "@/lib/api";
+import { retryAfterMinutes } from "@/lib/retry-after";
 import { safeNextPath } from "@/lib/safe-redirect";
 
 export function LoginForm() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Timestamp (ms) until which the submit button stays disabled after a 429.
+  const [lockedUntil, setLockedUntil] = useState<number | null>(null);
+  const [now, setNow] = useState(0);
+
+  useEffect(() => {
+    if (lockedUntil === null) return;
+    const timer = setInterval(() => {
+      const current = Date.now();
+      setNow(current);
+      if (current >= lockedUntil) {
+        setLockedUntil(null);
+        setError(null);
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [lockedUntil]);
+
+  const remainingSeconds = lockedUntil === null ? 0 : Math.max(0, Math.ceil((lockedUntil - now) / 1000));
+  const isLocked = lockedUntil !== null && remainingSeconds > 0;
 
   return (
     <section className="page-section">
@@ -39,7 +59,22 @@ export function LoginForm() {
                 router.push(safeNextPath(next, window.location.origin));
                 router.refresh();
               } catch (err: unknown) {
-                setError(err instanceof Error ? err.message : "Impossible de se connecter.");
+                if (err instanceof ApiError && err.status === 429) {
+                  // Same message whatever the email (no account enumeration).
+                  if (err.retryAfter !== null) {
+                    const minutes = retryAfterMinutes(err.retryAfter);
+                    setError(
+                      `Trop de tentatives, réessayez dans ${minutes} minute${minutes > 1 ? "s" : ""}.`,
+                    );
+                    const until = Date.now() + Math.max(1, err.retryAfter) * 1000;
+                    setNow(Date.now());
+                    setLockedUntil(until);
+                  } else {
+                    setError("Trop de tentatives, réessayez dans quelques minutes.");
+                  }
+                } else {
+                  setError(err instanceof Error ? err.message : "Impossible de se connecter.");
+                }
               } finally {
                 setIsSubmitting(false);
               }
@@ -74,9 +109,17 @@ export function LoginForm() {
                 autoComplete="current-password"
               />
             </div>
-            {error && <p className="text-sm text-rose-700">{error}</p>}
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Connexion..." : "Se connecter"}
+            {error && (
+              <p role="alert" className="text-sm text-rose-700">
+                {error}
+              </p>
+            )}
+            <Button type="submit" disabled={isSubmitting || isLocked}>
+              {isSubmitting
+                ? "Connexion..."
+                : isLocked
+                  ? `Se connecter (${Math.floor(remainingSeconds / 60)}:${String(remainingSeconds % 60).padStart(2, "0")})`
+                  : "Se connecter"}
             </Button>
           </form>
           <CardBody>
