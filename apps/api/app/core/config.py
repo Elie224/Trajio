@@ -68,9 +68,8 @@ class Settings(BaseSettings):
     def async_database_url(self) -> str:
         """SQLAlchemy URL for the async driver used by the application."""
         if self.DATABASE_URL:
-            return (
-                self.DATABASE_URL.replace("postgres://", "postgresql+asyncpg://")
-                .replace("postgresql://", "postgresql+asyncpg://")
+            return self.DATABASE_URL.replace("postgres://", "postgresql+asyncpg://").replace(
+                "postgresql://", "postgresql+asyncpg://"
             )
         return (
             f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
@@ -81,9 +80,8 @@ class Settings(BaseSettings):
     def sync_database_url(self) -> str:
         """SQLAlchemy URL for the sync driver (Alembic, maintenance scripts)."""
         if self.DATABASE_URL:
-            return (
-                self.DATABASE_URL.replace("postgres://", "postgresql+psycopg://")
-                .replace("postgresql+asyncpg://", "postgresql+psycopg://")
+            return self.DATABASE_URL.replace("postgres://", "postgresql+psycopg://").replace(
+                "postgresql+asyncpg://", "postgresql+psycopg://"
             )
         return (
             f"postgresql+psycopg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"

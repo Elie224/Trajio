@@ -21,7 +21,7 @@ if (-not (Test-Path $python)) {
 Write-Host "API Trajio           : http://127.0.0.1:$Port" -ForegroundColor Cyan
 Write-Host "Documentation OpenAPI: http://127.0.0.1:$Port/docs" -ForegroundColor DarkGray
 
-$uvicornArgs = @('app.main:app', '--host', '127.0.0.1', '--port', $Port)
+$uvicornArgs = @('app.main:app', '--app-dir', $apiDir, '--host', '127.0.0.1', '--port', $Port)
 if ($Reload) {
     $uvicornArgs += '--reload'
 }

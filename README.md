@@ -6,9 +6,10 @@ Trajio est une application de covoiturage de proximite. Elle met en relation
 des conducteurs qui ont des places libres et des passagers qui vont dans la
 meme direction, meme lorsque les points de depart et d'arrivee different.
 
-Ce depot contient **la fondation technique (v0.1.0)** : le socle est
-executable et verifie, mais aucun module metier n'est implemente. Les
-fonctionnalites seront ajoutees par jalons, decrits dans
+Ce depot contient **la fondation technique et les premiers modules produit** :
+le socle est executable et verifie, avec une phase UI/UX complete et une
+phase authentification/vehicules deja integrees. Les fonctionnalites restantes
+continuent d'etre ajoutees par jalons, decrits dans
 [docs/roadmap.md](./docs/roadmap.md).
 
 ## Prerequis

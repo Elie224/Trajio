@@ -1,15 +1,13 @@
 """Alembic environment, wired to the application settings and metadata."""
 
-import asyncio
 from logging.config import fileConfig
 
 import app.models  # noqa: F401 - imported for side effects: registers every model
 from alembic import context
 from app.core.config import settings
 from app.db.base import Base
-from sqlalchemy import pool
+from sqlalchemy import create_engine, pool
 from sqlalchemy.engine import Connection
-from sqlalchemy.ext.asyncio import async_engine_from_config
 
 config = context.config
 
@@ -48,19 +46,14 @@ def do_run_migrations(connection: Connection) -> None:
         context.run_migrations()
 
 
-async def run_async_migrations() -> None:
-    connectable = async_engine_from_config(
-        {"sqlalchemy.url": _database_url()},
-        prefix="sqlalchemy.",
+def run_migrations_online() -> None:
+    connectable = create_engine(
+        _database_url(),
         poolclass=pool.NullPool,
     )
-    async with connectable.connect() as connection:
-        await connection.run_sync(do_run_migrations)
-    await connectable.dispose()
-
-
-def run_migrations_online() -> None:
-    asyncio.run(run_async_migrations())
+    with connectable.connect() as connection:
+        do_run_migrations(connection)
+    connectable.dispose()
 
 
 if context.is_offline_mode():

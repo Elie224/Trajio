@@ -1,8 +1,6 @@
 @import "tailwindcss";
 
 @theme {
-  /* Trajio brand palette: a calm, high-legibility green suited to a mobility
-     product, with a full tonal range usable for both surfaces and text. */
   --color-brand-50: #ecfdf5;
   --color-brand-100: #d1fae5;
   --color-brand-200: #a7f3d0;
@@ -14,6 +12,12 @@
   --color-brand-800: #065f46;
   --color-brand-900: #064e3b;
 
+  --color-page-bg: #f8fafc;
+  --color-page-surface: #ffffff;
+  --color-page-text: #0f172a;
+  --color-page-muted: #64748b;
+  --color-page-border: #e2e8f0;
+
   --font-sans: var(--font-app-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
     Roboto, sans-serif;
 }
@@ -23,6 +27,82 @@ html {
 }
 
 body {
+  background-color: var(--color-page-bg);
+  color: var(--color-page-text);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.surface {
+  background-color: var(--color-page-surface);
+  border: 1px solid var(--color-page-border);
+  border-radius: 1rem;
+  box-shadow:
+    0 1px 2px rgb(15 23 42 / 0.04),
+    0 8px 30px rgb(15 23 42 / 0.06);
+}
+
+.field {
+  display: block;
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-page-border);
+  background: #fff;
+  padding: 0.62rem 0.8rem;
+  font-size: 0.925rem;
+  color: var(--color-page-text);
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.field::placeholder {
+  color: #94a3b8;
+}
+
+.field:hover {
+  border-color: #cbd5e1;
+}
+
+.field:focus-visible {
+  outline: none;
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgb(16 185 129 / 0.2);
+}
+
+.field[disabled] {
   background-color: #f8fafc;
-  color: #0f172a;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.label {
+  margin-bottom: 0.4rem;
+  display: inline-flex;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--color-page-muted);
+}
+
+.map-shell {
+  min-height: 380px;
+  overflow: hidden;
+  border-radius: 1rem;
+  border: 1px solid var(--color-page-border);
+}
+
+.page-section {
+  padding-top: 3.5rem;
+  padding-bottom: 3.5rem;
+}
+
+@media (max-width: 640px) {
+  .page-section {
+    padding-top: 2.5rem;
+    padding-bottom: 2.5rem;
+  }
 }

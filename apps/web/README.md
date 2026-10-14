@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## Trajio Web — Phase 1 UI/UX
 
-## Getting Started
+Frontend Next.js du projet Trajio.
 
-First, run the development server:
+Cette phase livre une interface utilisateur orientée covoiturage :
+
+- navigation produit (Accueil, Recherche, Proposer, Mes trajets, Messages),
+- landing page avec formulaire de recherche visible immédiatement,
+- page de recherche desktop/mobile avec carte MapLibre et résultats réels publiés depuis l'API,
+- pages d'authentification et espace compte réellement connectés au backend,
+- publication de trajet connectée à l'API (`/api/v1/trips`) avec prévisualisation carte,
+- pages messagerie prêtes pour la suite métier.
+
+Les flux métier non encore exposés côté API ne sont pas simulés : les actions concernées restent explicitement désactivées.
+
+## Démarrage
+
+Depuis [apps/web/](C:/Users/KOURO/Desktop/Trajio/apps/web/) :
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Ou depuis la racine du dépôt :
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```powershell
+.\scripts\start-web.ps1 -Port 3006
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Le frontend lit `NEXT_PUBLIC_API_BASE_URL` dans [apps/web/.env.local](./.env.local) et vérifie l'API via `/health`.
 
-## Learn More
+## Routes principales
 
-To learn more about Next.js, take a look at the following resources:
+- `/` : page d'accueil avec Hero, recherche, carte et sections produit
+- `/search` : espace de recherche avec résultats + carte interactive
+- `/offer` : publication de trajet connectée (`POST /api/v1/trips`)
+- `/login` et `/signup` : inscription/connexion connectées à `/api/v1/auth/*`
+- `/trips` : espace compte connecté (`/auth/me`, `/vehicles`, `/trips/mine`)
+- `/messages` : section utilisateur (liaison backend prévue phase 6)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Validation
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Depuis [apps/web/](C:/Users/KOURO/Desktop/Trajio/apps/web/) :
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run typecheck
+npm run lint
+```

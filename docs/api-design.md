@@ -1,7 +1,8 @@
 # Conception de l'API
 
-> **Statut : intention.** Seul `/health` est implemente. Ce document fixe le
-> contrat que les prochains modules devront respecter.
+> **Statut : partiellement implémenté.** Les modules `/health`, `/auth` et
+> `/vehicles` sont implémentés. Les autres sections restent le contrat cible
+> des prochains modules.
 
 ## 1. Principes
 
@@ -145,13 +146,13 @@ meme transaction : soit les deux reussissent, soit aucune.
 
 | Module | Prefixe | Endpoints principaux |
 |---|---|---|
-| Sante | `/health` | `/health`, `/health/ready` **implemente** |
-| Authentification | `/auth` | `register`, `login`, `refresh`, `logout`, `verify-email` |
+| Sante | `/health` | `/health`, `/health/ready` **implémente** |
+| Authentification | `/auth` | `register`, `login`, `refresh`, `logout`, `verify-email`, `forgot-password`, `reset-password`, `me` **implémente** |
 | Utilisateurs | `/users` | `me`, profil, `drivers/{id}` |
-| Vehicules | `/vehicles` | CRUD, definir le vehicule principal |
-| Trajets | `/trips` | CRUD, `{id}/occurrences`, `{id}/complete` |
-| Recherche | `/search` | `GET /search/trips`, delegue a `matching` |
-| Reservations | `/bookings` | `POST`, `{id}/accept`, `{id}/decline`, `{id}/cancel` |
+| Vehicules | `/vehicles` | CRUD, definir le vehicule principal **implémente** |
+| Trajets | `/trips` | `POST /trips`, `GET /trips/mine`, `PATCH /trips/{id}`, `POST /trips/{id}/cancel` **implémente** |
+| Recherche | `/search` | `GET /search/trips` avec filtres + score de matching explicable (`match_score`, `match_reasons`) **implémente** |
+| Reservations | `/bookings` | `POST /bookings`, `GET /bookings/mine`, `GET /bookings/incoming`, `{id}/accept`, `{id}/decline`, `{id}/cancel` **implémente** |
 | Messages | `/messages` | conversations, `{id}/messages`, `{id}/read` |
 | Notifications | `/notifications` | liste, `{id}/read` |
 | Evaluations | `/reviews` | liste publique, creation post-trajet |
