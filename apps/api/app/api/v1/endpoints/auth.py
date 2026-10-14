@@ -10,7 +10,7 @@ from uuid import UUID
 
 import jwt
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -41,6 +41,7 @@ from app.models import (
 from app.schemas.auth import (
     AuthMessage,
     DeleteAccountRequest,
+    DeletionPreview,
     ForgotPasswordRequest,
     ForgotPasswordResponse,
     LoginRequest,
@@ -345,6 +346,30 @@ async def export_my_data(
         "trips": [TripPublic.model_validate(t).model_dump(mode="json") for t in trips],
         "bookings": [BookingPublic.model_validate(b).model_dump(mode="json") for b in bookings],
     }
+
+
+@router.get("/me/deletion-preview", response_model=DeletionPreview)
+@limiter.limit("5/hour")
+async def deletion_preview(
+    request: Request,
+    session: AsyncSession = Depends(get_db_session),
+    user: User = Depends(get_current_user),
+) -> DeletionPreview:
+    """How many upcoming trips and active bookings DELETE /me would cancel."""
+    trips = await session.scalar(
+        select(func.count())
+        .select_from(Trip)
+        .where(Trip.driver_id == user.id, Trip.status == TripStatus.SCHEDULED)
+    )
+    bookings = await session.scalar(
+        select(func.count())
+        .select_from(Booking)
+        .where(
+            Booking.passenger_id == user.id,
+            Booking.status.in_(ACTIVE_BOOKING_STATUSES),
+        )
+    )
+    return DeletionPreview(trips=trips or 0, bookings=bookings or 0)
 
 
 @router.delete("/me", response_model=AuthMessage)

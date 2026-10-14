@@ -88,6 +88,11 @@ class DeleteAccountRequest(BaseModel):
     password: str = Field(min_length=1, max_length=256)
 
 
+class DeletionPreview(BaseModel):
+    trips: int
+    bookings: int
+
+
 class AuthMessage(BaseModel):
     message: str
 
