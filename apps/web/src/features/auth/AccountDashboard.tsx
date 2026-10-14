@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardTitle } from "@/components/ui/Card";
 import { Container } from "@/components/ui/Container";
+import { loginHref } from "@/lib/safe-redirect";
 import {
   acceptBooking,
   cancelBooking,
@@ -19,6 +21,7 @@ import {
   fetchCurrentUser,
   fetchMyTrips,
   fetchVehicles,
+  isUnauthenticated,
   type Booking,
   type Trip,
   type UserProfile,
@@ -40,6 +43,7 @@ type LoadState =
 
 export function AccountDashboard() {
   const [state, setState] = useState<LoadState>({ status: "loading" });
+  const pathname = usePathname();
   const [isSubmittingVehicle, setIsSubmittingVehicle] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -54,10 +58,7 @@ export function AccountDashboard() {
       ]);
       return { status: "ready", user, vehicles, trips, bookings, incomingBookings };
     } catch (error: unknown) {
-      if (
-        error instanceof Error &&
-        (error.message.includes("Non authentifié") || error.message.includes("401"))
-      ) {
+      if (isUnauthenticated(error)) {
         return { status: "anonymous" };
       }
       return {
@@ -96,7 +97,7 @@ export function AccountDashboard() {
             <CardBody>Connectez-vous pour gérer votre profil, vos véhicules et vos trajets.</CardBody>
             <div className="mt-4 flex gap-2">
               <Link
-                href="/login"
+                href={loginHref(pathname)}
                 className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
               >
                 Se connecter

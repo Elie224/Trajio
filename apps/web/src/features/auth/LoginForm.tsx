@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardTitle } from "@/components/ui/Card";
 import { Container } from "@/components/ui/Container";
 import { login } from "@/lib/api";
+import { safeNextPath } from "@/lib/safe-redirect";
 
 export function LoginForm() {
   const router = useRouter();
@@ -34,7 +35,8 @@ export function LoginForm() {
                   String(formData.get("email") ?? ""),
                   String(formData.get("password") ?? ""),
                 );
-                router.push("/trips");
+                const next = new URLSearchParams(window.location.search).get("next");
+                router.push(safeNextPath(next, window.location.origin));
                 router.refresh();
               } catch (err: unknown) {
                 setError(err instanceof Error ? err.message : "Impossible de se connecter.");

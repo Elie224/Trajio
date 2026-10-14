@@ -26,6 +26,11 @@ export class ApiError extends Error {
   }
 }
 
+/** True when the API answered 401 (no or expired session). */
+export function isUnauthenticated(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 401;
+}
+
 async function fetchJson<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(env.apiBaseUrl + path, {
     cache: "no-store",

@@ -2,17 +2,20 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 import { Card, CardBody, CardTitle } from "@/components/ui/Card";
 import { Container } from "@/components/ui/Container";
 import { AccountDataSettings } from "@/features/auth/AccountDataSettings";
-import { ApiError, fetchCurrentUser } from "@/lib/api";
+import { fetchCurrentUser, isUnauthenticated } from "@/lib/api";
+import { loginHref } from "@/lib/safe-redirect";
 
 type State = { status: "loading" } | { status: "anonymous" } | { status: "ready" } | { status: "error" };
 
 /** /account: personal data export and account deletion, signed-in users only. */
 export function AccountSettings() {
   const [state, setState] = useState<State>({ status: "loading" });
+  const pathname = usePathname();
 
   useEffect(() => {
     let cancelled = false;
@@ -22,10 +25,7 @@ export function AccountSettings() {
       })
       .catch((error: unknown) => {
         if (cancelled) return;
-        const anonymous =
-          (error instanceof ApiError && error.status === 401) ||
-          (error instanceof Error && error.message.includes("Non authentifié"));
-        setState({ status: anonymous ? "anonymous" : "error" });
+        setState({ status: isUnauthenticated(error) ? "anonymous" : "error" });
       });
     return () => {
       cancelled = true;
@@ -54,7 +54,7 @@ export function AccountSettings() {
             {state.status === "anonymous" && (
               <div className="mt-4 flex gap-2">
                 <Link
-                  href="/login"
+                  href={loginHref(pathname)}
                   className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
                 >
                   Se connecter
