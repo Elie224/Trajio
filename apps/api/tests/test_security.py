@@ -144,11 +144,8 @@ async def test_forged_token_is_rejected(client: AsyncClient) -> None:
         {"sub": str(uuid4()), "type": "access", "role": "admin"},
         "attacker-guess-" * 4,
         algorithm="HS256",
-   
     )
-    response = await client.get(
-        "/api/v1/auth/me", headers={"Authorization": f"Bearer {forged}"}
-    )
+    response = await client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {forged}"})
     assert response.status_code == 401
 
 

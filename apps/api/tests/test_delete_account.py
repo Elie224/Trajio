@@ -151,7 +151,7 @@ async def test_forgot_password_never_returns_token_outside_dev(
     fake_session.counts = [SimpleNamespace(id=uuid4(), password_hash="hash")]
     response = await client.post("/api/v1/auth/forgot-password", json={"email": "a@example.com"})
     assert response.status_code == 200
-    assert response.json().get("reset_token") is None
+    assert "reset_token" not in response.json()
 
 
 def test_app_env_defaults_to_production(monkeypatch) -> None:
@@ -159,3 +159,41 @@ def test_app_env_defaults_to_production(monkeypatch) -> None:
 
     monkeypatch.delenv("APP_ENV", raising=False)
     assert Settings.model_fields["APP_ENV"].default == "production"
+
+
+def test_access_token_carries_token_version() -> None:
+    from app.core.security import decode_token, issue_access_token
+
+    token = issue_access_token(user_id=uuid4(), role="user", token_version=3)
+    assert decode_token(token)["ver"] == 3
+
+
+async def test_stale_token_version_is_rejected(client) -> None:
+    from app.core.security import issue_access_token
+
+    user = SimpleNamespace(
+        id=uuid4(), deleted_at=None, password_changed_at=None, token_version=1, status="active"
+    )
+
+    class Session:
+        async def get(self, *_):
+            return user
+
+        async def scalar(self, *_):
+            return 0
+
+    async def _session():
+        yield Session()
+
+    app.dependency_overrides[get_db_session] = _session
+    try:
+        stale = issue_access_token(user_id=user.id, role="user", token_version=0)
+        response = await client.get(URL, headers={"Authorization": f"Bearer {stale}"})
+        assert response.status_code == 401
+        fresh = issue_access_token(user_id=user.id, role="user", token_version=1)
+        response = await client.get(
+            f"{URL}/deletion-preview", headers={"Authorization": f"Bearer {fresh}"}
+        )
+        assert response.status_code != 401
+    finally:
+        app.dependency_overrides.clear()

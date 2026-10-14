@@ -13,6 +13,7 @@ from sqlalchemy import (
     Enum,
     ForeignKey,
     Index,
+    Integer,
     String,
     Text,
     UniqueConstraint,
@@ -81,6 +82,11 @@ class User(Base):
     # Access tokens issued before this instant are rejected (see api/deps.py).
     password_changed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+    # Bumped on password reset or account deletion: access tokens carrying an
+    # older value are rejected, whatever their issue time (see api/deps.py).
+    token_version: Mapped[int] = mapped_column(
+        Integer(), nullable=False, default=0, server_default=text("0")
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

@@ -115,7 +115,9 @@ async def _issue_session_tokens(
     session: AsyncSession,
     user: User,
 ) -> tuple[str, str]:
-    access_token = issue_access_token(user_id=user.id, role=user.role.value)
+    access_token = issue_access_token(
+        user_id=user.id, role=user.role.value, token_version=user.token_version or 0
+    )
     refresh_token = issue_refresh_token()
     session.add(
         RefreshToken(
@@ -445,6 +447,7 @@ async def delete_me(
     user.phone = None
     user.password_hash = hash_password(secrets.token_urlsafe(32))
     user.password_changed_at = now
+    user.token_version = (user.token_version or 0) + 1
     user.deleted_at = now
     user.status = UserStatus.SUSPENDED
     await _revoke_refresh_tokens(session, user.id, now)
@@ -454,7 +457,11 @@ async def delete_me(
     return AuthMessage(message="Compte supprimé et données personnelles anonymisées.")
 
 
-@router.post("/forgot-password", response_model=ForgotPasswordResponse)
+@router.post(
+    "/forgot-password",
+    response_model=ForgotPasswordResponse,
+    response_model_exclude_none=True,
+)
 @limiter.limit("5/hour")
 async def forgot_password(
     request: Request,
@@ -500,6 +507,7 @@ async def reset_password(
     now = datetime.now(UTC)
     user.password_hash = hash_password(payload.new_password)
     user.password_changed_at = now
+    user.token_version = (user.token_version or 0) + 1
     await _revoke_refresh_tokens(session, user.id, now)
     await session.commit()
     audit_logger.info("password_reset user_id=%s", user.id)

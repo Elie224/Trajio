@@ -102,13 +102,14 @@ def password_fingerprint(password_hash: str) -> str:
     return hashlib.sha256(password_hash.encode("utf-8")).hexdigest()[:32]
 
 
-def issue_access_token(*, user_id: UUID, role: str) -> str:
+def issue_access_token(*, user_id: UUID, role: str, token_version: int = 0) -> str:
     now = datetime.now(UTC)
     return jwt.encode(
         {
             "sub": str(user_id),
             "role": role,
             "type": "access",
+            "ver": token_version,
             "iat": now,
             "exp": now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
         },

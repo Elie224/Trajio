@@ -63,6 +63,10 @@ async def get_current_user(
     if user is None or user.deleted_at is not None:
         raise _unauthorized("Compte introuvable.")
 
+    # Tokens from before the last reset or deletion carry an older version.
+    if payload.get("ver") != (user.token_version or 0):
+        raise _unauthorized("Session expirée.")
+
     # Tokens issued before the last password change are no longer valid.
     if user.password_changed_at is not None:
         issued_at = payload.get("iat")
