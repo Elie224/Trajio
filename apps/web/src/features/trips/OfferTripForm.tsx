@@ -1,13 +1,23 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardTitle } from "@/components/ui/Card";
 import { Container } from "@/components/ui/Container";
 import { TrajioMap } from "@/features/map/TrajioMap";
-import { createTrip, fetchCurrentUser, fetchVehicles, type UserProfile, type Vehicle } from "@/lib/api";
+import {
+  createTrip,
+  fetchCurrentUser,
+  fetchVehicles,
+  isUnauthenticated,
+  type UserProfile,
+  type Vehicle,
+} from "@/lib/api";
+import { loginHref } from "@/lib/safe-redirect";
 
 type State =
   | { status: "loading" }
@@ -17,6 +27,7 @@ type State =
 
 export function OfferTripForm() {
   const [state, setState] = useState<State>({ status: "loading" });
+  const pathname = usePathname();
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -35,10 +46,7 @@ export function OfferTripForm() {
       })
       .catch((unknownError: unknown) => {
         if (cancelled) return;
-        if (
-          unknownError instanceof Error &&
-          (unknownError.message.includes("Non authentifié") || unknownError.message.includes("401"))
-        ) {
+        if (isUnauthenticated(unknownError)) {
           setState({ status: "anonymous" });
           return;
         }
@@ -83,6 +91,14 @@ export function OfferTripForm() {
           <Card>
             <CardTitle>Connexion requise</CardTitle>
             <CardBody>Vous devez être connecté pour proposer un trajet.</CardBody>
+            <div className="mt-4">
+              <Link
+                href={loginHref(pathname)}
+                className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+              >
+                Se connecter
+              </Link>
+            </div>
           </Card>
         </Container>
       </section>

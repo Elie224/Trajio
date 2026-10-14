@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Menu, CarFront, MapPinned } from "lucide-react";
 
 import { Container } from "@/components/ui/Container";
 import { AuthActions } from "@/features/auth/AuthActions";
 import { env } from "@/lib/env";
+import { loginHref } from "@/lib/safe-redirect";
 
 const NAV_ITEMS = [
   { href: "/", label: "Accueil" },
@@ -19,6 +21,7 @@ const NAV_ITEMS = [
 
 export function SiteHeader() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const pathname = usePathname();
 
   const closeMenu = () => setIsMobileMenuOpen(false);
 
@@ -86,7 +89,7 @@ export function SiteHeader() {
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3">
                 <Link
-                  href="/login"
+                  href={loginHref(pathname)}
                   onClick={closeMenu}
                   className="rounded-lg border border-slate-200 px-2.5 py-2 text-center text-sm font-medium text-slate-700"
                 >

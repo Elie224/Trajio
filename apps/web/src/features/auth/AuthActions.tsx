@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
-import { fetchCurrentUser, logout, type UserProfile } from "@/lib/api";
+import { fetchCurrentUser, isUnauthenticated, logout, type UserProfile } from "@/lib/api";
+import { loginHref } from "@/lib/safe-redirect";
 
 type AuthState =
   | { status: "loading" }
@@ -13,16 +15,13 @@ type AuthState =
 
 export function AuthActions() {
   const [state, setState] = useState<AuthState>({ status: "loading" });
+  const pathname = usePathname();
 
   useEffect(() => {
     fetchCurrentUser()
       .then((user) => setState({ status: "authenticated", user }))
       .catch((error: unknown) => {
-        if (error instanceof Error && error.message.includes("Non authentifié")) {
-          setState({ status: "anonymous" });
-          return;
-        }
-        if (error instanceof Error && error.message.includes("401")) {
+        if (isUnauthenticated(error)) {
           setState({ status: "anonymous" });
           return;
         }
@@ -41,7 +40,7 @@ export function AuthActions() {
     return (
       <div className="hidden items-center gap-2 sm:flex">
         <Link
-          href="/login"
+          href={loginHref(pathname)}
           className="rounded-xl border border-slate-200 px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
         >
           Connexion
