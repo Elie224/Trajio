@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { ACCOUNT_DELETED_FLAG } from "./AccountDataSettings";
+import { ACCOUNT_DELETED_FLAG } from "@/lib/account-flags";
 
 /** One-shot confirmation shown on the home page after an account deletion. */
 export function AccountDeletedNotice() {

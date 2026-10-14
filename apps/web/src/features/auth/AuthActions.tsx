@@ -62,9 +62,9 @@ export function AuthActions() {
 
   return (
     <div className="hidden items-center gap-3 sm:flex">
-      <p className="text-sm text-slate-700">
+      <Link href="/account" className="text-sm text-slate-700 hover:text-slate-900" title="Mon compte">
         Bonjour <span className="font-semibold">{state.user.first_name}</span>
-      </p>
+      </Link>
       <button
         className="rounded-xl border border-slate-200 px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
         onClick={async () => {

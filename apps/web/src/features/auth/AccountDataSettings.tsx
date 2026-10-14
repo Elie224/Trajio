@@ -4,10 +4,8 @@ import { useEffect, useId, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardTitle } from "@/components/ui/Card";
+import { ACCOUNT_DELETED_FLAG } from "@/lib/account-flags";
 import { ApiError, deleteAccount, exportMyData, fetchDeletionPreview } from "@/lib/api";
-
-/** sessionStorage key read by AccountDeletedNotice on the home page. */
-export const ACCOUNT_DELETED_FLAG = "trajio:account-deleted";
 
 function Spinner() {
   return (
@@ -62,7 +60,7 @@ function ExportSection() {
   };
 
   return (
-    <Card className="lg:col-span-2" >
+    <Card>
       <section id="mes-donnees" aria-labelledby="mes-donnees-title">
         <h2 id="mes-donnees-title" className="text-base font-semibold text-slate-900">
           Mes données
@@ -108,10 +106,17 @@ type DeletionPreview = { trips: number; bookings: number };
 
 function parsePreview(data: unknown): DeletionPreview | null {
   if (!data || typeof data !== "object") return null;
-  const record = data as Record<string, unknown>;
-  const trips = record.trips ?? record.future_trips ?? record.trips_count;
-  const bookings = record.bookings ?? record.future_bookings ?? record.bookings_count;
-  if (typeof trips !== "number" || typeof bookings !== "number") return null;
+  const { trips, bookings } = data as Record<string, unknown>;
+  if (
+    typeof trips !== "number" ||
+    typeof bookings !== "number" ||
+    !Number.isInteger(trips) ||
+    !Number.isInteger(bookings) ||
+    trips < 0 ||
+    bookings < 0
+  ) {
+    return null;
+  }
   return { trips, bookings };
 }
 
@@ -299,7 +304,7 @@ function DangerZone() {
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   return (
-    <Card className="lg:col-span-2 !ring-rose-200">
+    <Card className="!ring-rose-200">
       <CardTitle>Zone de danger</CardTitle>
       <CardBody>
         La suppression de votre compte est définitive. Vos données personnelles seront

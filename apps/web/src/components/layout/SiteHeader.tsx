@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { href: "/offer", label: "Proposer un trajet" },
   { href: "/trips", label: "Mes trajets" },
   { href: "/messages", label: "Messages" },
+  { href: "/account", label: "Mon compte" },
 ] as const;
 
 export function SiteHeader() {
