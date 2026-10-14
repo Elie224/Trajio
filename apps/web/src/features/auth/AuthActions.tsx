@@ -4,9 +4,10 @@ import Link from "next/link";
 import { buttonClasses } from "@/components/ui/Button";
 import { usePathname } from "next/navigation";
 
-import { clearUserSessionData } from "@/features/auth/session";
+import { clearUserSessionData, resetSession } from "@/features/auth/session";
 import { useSession } from "@/features/auth/useSession";
 import { logout } from "@/lib/api";
+import { SERVICE_UNAVAILABLE_MESSAGE } from "@/lib/errors";
 import { loginHref } from "@/lib/safe-redirect";
 
 export function AuthActions() {
@@ -17,9 +18,22 @@ export function AuthActions() {
     return <p className="hidden text-xs text-page-muted md:block">Session…</p>;
   }
 
-  if (state.status === "anonymous") {
+  // Logged out, or API unreachable: same buttons, plus a non-blocking notice.
+  if (state.status === "anonymous" || state.status === "error") {
     return (
       <div className="hidden items-center gap-2 md:flex">
+        {state.status === "error" && (
+          <p role="status" className="hidden items-center gap-2 text-sm text-page-muted xl:flex">
+            <span>{SERVICE_UNAVAILABLE_MESSAGE}</span>
+            <button
+              type="button"
+              onClick={() => resetSession()}
+              className="inline-flex min-h-11 items-center font-medium text-primary-strong underline underline-offset-2"
+            >
+              Réessayer
+            </button>
+          </p>
+        )}
         <Link
           href={loginHref(pathname)}
           className={buttonClasses("secondary", "!min-h-11 !w-auto px-4 text-sm")}
@@ -34,10 +48,6 @@ export function AuthActions() {
         </Link>
       </div>
     );
-  }
-
-  if (state.status === "error") {
-    return <p className="hidden text-xs text-danger md:block">Session indisponible : {state.message}</p>;
   }
 
   return (

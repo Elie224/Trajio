@@ -1,4 +1,5 @@
 "use client";
+import { ServiceError } from "@/components/ui/ServiceError";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -7,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardTitle } from "@/components/ui/Card";
 import { Container } from "@/components/ui/Container";
 import { ApiError, requestPasswordReset } from "@/lib/api";
+import { isServiceUnavailable } from "@/lib/errors";
 import { retryAfterMinutes } from "@/lib/retry-after";
 
 const GENERIC_SENT =
@@ -17,6 +19,7 @@ export function ForgotPasswordForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
     const prefill = new URLSearchParams(window.location.search).get("email");
@@ -42,12 +45,16 @@ export function ForgotPasswordForm() {
                 event.preventDefault();
                 setIsSubmitting(true);
                 setError(null);
+                setUnavailable(false);
                 try {
                   // The response may carry a dev-only reset_token: deliberately ignored.
                   await requestPasswordReset(email);
                   setSent(true);
                 } catch (err: unknown) {
-                  if (err instanceof ApiError && err.status === 429) {
+                  if (isServiceUnavailable(err)) {
+                    // API down / 5xx: say so, keep the typed email in the field.
+                    setUnavailable(true);
+                  } else if (err instanceof ApiError && err.status === 429) {
                     if (err.retryAfter !== null) {
                       const minutes = retryAfterMinutes(err.retryAfter);
                       setError(
@@ -86,6 +93,7 @@ export function ForgotPasswordForm() {
                   onChange={(event) => setEmail(event.target.value)}
                 />
               </div>
+              {unavailable && <ServiceError submitForm />}
               {error && (
                 <p role="alert" className="text-sm text-danger">
                   {error}

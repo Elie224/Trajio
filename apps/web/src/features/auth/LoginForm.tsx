@@ -1,4 +1,5 @@
 "use client";
+import { ServiceError } from "@/components/ui/ServiceError";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -11,6 +12,7 @@ import { PASSWORD_RESET_FLAG } from "@/lib/account-flags";
 import { resetSession } from "@/features/auth/session";
 import { ApiError, login } from "@/lib/api";
 import { env } from "@/lib/env";
+import { SERVICE_UNAVAILABLE_MESSAGE, userFacingError } from "@/lib/errors";
 import { retryAfterMinutes } from "@/lib/retry-after";
 import { safeNextPath } from "@/lib/safe-redirect";
 
@@ -97,7 +99,7 @@ export function LoginForm() {
                     setError("Trop de tentatives, réessayez dans quelques minutes.");
                   }
                 } else {
-                  setError(err instanceof Error ? err.message : "Impossible de se connecter.");
+                  setError(userFacingError(err, "Impossible de se connecter."));
                 }
               } finally {
                 setIsSubmitting(false);
@@ -135,10 +137,14 @@ export function LoginForm() {
                 autoComplete="current-password"
               />
             </div>
-            {error && (
-              <p role="alert" className="text-sm text-danger">
-                {error}
-              </p>
+            {error === SERVICE_UNAVAILABLE_MESSAGE ? (
+              <ServiceError submitForm />
+            ) : (
+              error && (
+                <p role="alert" className="text-sm text-danger">
+                  {error}
+                </p>
+              )
             )}
             <Button type="submit" disabled={isSubmitting || isLocked}>
               {isSubmitting

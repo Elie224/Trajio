@@ -1,4 +1,5 @@
 "use client";
+import { ServiceError } from "@/components/ui/ServiceError";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -8,6 +9,8 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardTitle } from "@/components/ui/Card";
 import { Container } from "@/components/ui/Container";
 import { login, register } from "@/lib/api";
+import { SERVICE_UNAVAILABLE_MESSAGE, userFacingError } from "@/lib/errors";
+import { resetSession } from "@/features/auth/session";
 
 export function SignupForm() {
   const router = useRouter();
@@ -52,11 +55,12 @@ export function SignupForm() {
                   setSuccess("Compte créé. Connexion réussie.");
                 }
                 setTimeout(() => {
+                  resetSession();
                   router.push("/trips");
                   router.refresh();
                 }, 350);
               } catch (err: unknown) {
-                setError(err instanceof Error ? err.message : "Impossible de créer le compte.");
+                setError(userFacingError(err, "Impossible de créer le compte."));
               } finally {
                 setIsSubmitting(false);
               }
@@ -116,7 +120,15 @@ export function SignupForm() {
                 autoComplete="new-password"
               />
             </div>
-            {error && <p className="md:col-span-2 text-sm text-danger">{error}</p>}
+            {error === SERVICE_UNAVAILABLE_MESSAGE ? (
+              <ServiceError submitForm className="md:col-span-2" />
+            ) : (
+              error && (
+                <p role="alert" className="md:col-span-2 text-sm text-danger">
+                  {error}
+                </p>
+              )
+            )}
             {success && <p className="md:col-span-2 text-sm text-emerald-700">{success}</p>}
             <div className="md:col-span-2">
               <Button type="submit" disabled={isSubmitting} className="w-full">

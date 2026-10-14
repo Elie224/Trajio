@@ -1,4 +1,6 @@
 "use client";
+import { ServiceError } from "@/components/ui/ServiceError";
+import { SERVICE_UNAVAILABLE_MESSAGE, userFacingError } from "@/lib/errors";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -186,6 +188,7 @@ export function SearchWorkspace() {
         </nav>
 
         <form
+          id="search-form"
           className="grid gap-4"
           onSubmit={async (event) => {
             event.preventDefault();
@@ -221,9 +224,7 @@ export function SearchWorkspace() {
                 message:
                   unknownError instanceof ApiError && unknownError.status === 401
                     ? "Connectez-vous pour rechercher un trajet."
-                    : unknownError instanceof Error
-                      ? unknownError.message
-                      : "Impossible de récupérer les trajets.",
+                    : userFacingError(unknownError, "Impossible de récupérer les trajets."),
               });
             }
           }}
@@ -412,11 +413,17 @@ export function SearchWorkspace() {
             </section>
           )}
 
-          {state.status === "error" && (
-            <p role="alert" className="mb-3 text-sm text-danger">
-              {state.message}
-            </p>
-          )}
+          {state.status === "error" &&
+            (state.message === SERVICE_UNAVAILABLE_MESSAGE ? (
+              <ServiceError
+                className="mb-3"
+                onRetry={() => document.querySelector<HTMLFormElement>("#search-form")?.requestSubmit()}
+              />
+            ) : (
+              <p role="alert" className="mb-3 text-sm text-danger">
+                {state.message}
+              </p>
+            ))}
 
           {state.items.length === 0 && state.status !== "loading" && (
             <div className="rounded-[var(--radius-card)] border border-dashed border-page-border p-4 text-sm text-page-muted">

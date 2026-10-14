@@ -1,4 +1,6 @@
 "use client";
+import { ServiceError } from "@/components/ui/ServiceError";
+import { userFacingError } from "@/lib/errors";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -63,7 +65,7 @@ export function AccountDashboard() {
       }
       return {
         status: "error",
-        message: error instanceof Error ? error.message : "Erreur inattendue.",
+        message: userFacingError(error, "Impossible de charger votre espace."),
       };
     }
   };
@@ -121,7 +123,14 @@ export function AccountDashboard() {
         <Container className="max-w-xl">
           <Card>
             <CardTitle>Erreur</CardTitle>
-            <CardBody>{state.message}</CardBody>
+            <ServiceError
+              className="mt-3"
+              message={state.message}
+              onRetry={() => {
+                setState({ status: "loading" });
+                void loadData().then(setState);
+              }}
+            />
           </Card>
         </Container>
       </section>
