@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Inter, Poppins } from "next/font/google";
 
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader } from "@/components/layout/SiteHeader";
@@ -22,12 +23,25 @@ export const viewport: Viewport = {
 };
 
 /**
- * No webfont is loaded on purpose: the build stays fully offline-capable and
- * avoids a third-party request that would have to be disclosed under GDPR.
+ * Fonts are downloaded at build time by next/font and served from our own
+ * origin: no request to Google at runtime (GDPR) and CSP stays font-src 'self'.
  */
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  display: "swap",
+  variable: "--font-app-sans",
+});
+
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["600"],
+  display: "swap",
+  variable: "--font-app-heading",
+});
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="fr" className="h-full">
+    <html lang="fr" className={`h-full ${inter.variable} ${poppins.variable}`}>
       <body className="flex min-h-full flex-col font-sans antialiased">
         <SiteHeader />
         <main className="flex-1">{children}</main>

@@ -5,18 +5,24 @@ type CardProps = {
   className?: string;
 };
 
+/** White card: radius 16, padding 16, soft shadow, 1px border. */
 export function Card({ children, className = "" }: CardProps) {
   return (
-    <div className={"rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 " + className}>
+    <div
+      className={
+        "rounded-[var(--radius-card)] border border-page-border bg-page-surface p-4 shadow-card " +
+        className
+      }
+    >
       {children}
     </div>
   );
 }
 
 export function CardTitle({ children }: { children: ReactNode }) {
-  return <h3 className="text-base font-semibold text-slate-900">{children}</h3>;
+  return <h3 className="font-heading text-base font-semibold text-page-text">{children}</h3>;
 }
 
 export function CardBody({ children }: { children: ReactNode }) {
-  return <div className="mt-2 text-sm leading-6 text-slate-600">{children}</div>;
+  return <div className="mt-2 text-sm leading-6 text-page-muted">{children}</div>;
 }

@@ -17,14 +17,13 @@ type TrajioMapProps = {
   className?: string;
 };
 
-function createMarker(color: string) {
+/** Pin with a pulsing halo (see .map-pin in globals.css; static if reduced motion). */
+function createMarker(color: string, label: string) {
   const marker = document.createElement("span");
-  marker.style.width = "14px";
-  marker.style.height = "14px";
-  marker.style.borderRadius = "999px";
-  marker.style.border = "2px solid #ffffff";
+  marker.className = "map-pin";
   marker.style.backgroundColor = color;
-  marker.style.boxShadow = "0 6px 18px rgba(15,23,42,0.25)";
+  marker.setAttribute("role", "img");
+  marker.setAttribute("aria-label", label);
   return marker;
 }
 
@@ -70,14 +69,14 @@ export function TrajioMap({ pickup, dropoff, route, className = "" }: TrajioMapP
 
       if (pickupCoordinate) {
         markerRef.current.push(
-          new maplibregl.Marker({ element: createMarker("#059669") })
+          new maplibregl.Marker({ element: createMarker("#059669", "Départ") })
             .setLngLat(pickupCoordinate)
             .addTo(map),
         );
       }
       if (dropoffCoordinate) {
         markerRef.current.push(
-          new maplibregl.Marker({ element: createMarker("#0ea5e9") })
+          new maplibregl.Marker({ element: createMarker("#047857", "Arrivée") })
             .setLngLat(dropoffCoordinate)
             .addTo(map),
         );
@@ -116,10 +115,11 @@ export function TrajioMap({ pickup, dropoff, route, className = "" }: TrajioMapP
           id: layerId,
           type: "line",
           source: sourceId,
+          layout: { "line-cap": "round", "line-join": "round" },
           paint: {
-            "line-color": "#10b981",
+            "line-color": "#059669",
             "line-width": 5,
-            "line-opacity": 0.9,
+            "line-opacity": 0.95,
           },
         });
       }
