@@ -21,7 +21,13 @@ export function safeNextPath(
     return fallback;
   }
   if (url.origin !== origin) return fallback;
-  return url.pathname + url.search;
+  const { pathname } = url;
+  // After normalisation (e.g. "/..//evil.com" -> "//evil.com"), a path that
+  // starts with "//" or "/\" would be read as protocol-relative by the router.
+  if (pathname.startsWith("//") || pathname.startsWith("/\\")) return fallback;
+  // Never bounce back to the login page (loops, nested ?next=).
+  if (pathname === "/login" || pathname.startsWith("/login/")) return fallback;
+  return pathname + url.search;
 }
 
 /** Login URL that brings the user back to `path` after authentication. */
