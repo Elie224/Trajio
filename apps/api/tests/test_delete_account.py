@@ -90,14 +90,40 @@ async def test_deletion_preview_returns_counts(client, fake_session) -> None:
     assert response.json() == {"trips": 2, "bookings": 3}
 
 
-async def test_deletion_preview_limit_ignores_spoofed_forwarded_for(client, fake_session) -> None:
-    fake_session.counts = [0, 0] * 5
+@pytest.fixture
+def ip_limit_off() -> Iterator[None]:
+    """Only account_limiter can block: proves the per-account limit on its own."""
+    previous = limiter.enabled
+    limiter.enabled = False
+    yield
+    limiter.enabled = previous
+
+
+@pytest.mark.parametrize(
+    ("scope", "path"),
+    [("export", "/export"), ("deletion-preview", "/deletion-preview")],
+)
+async def test_account_limit_blocks_without_ip_limit(
+    client, fake_session, ip_limit_off, scope, path
+) -> None:
+    user = app.dependency_overrides[get_current_user]()
+    for _ in range(5):
+        account_limiter.hit(scope, str(user.id), limit=5, window_seconds=3600)
+    response = await client.get(f"{URL}{path}", headers={"X-Forwarded-For": "203.0.113.9"})
+    assert response.status_code == 429
+    assert int(response.headers["Retry-After"]) > 0
+
+
+async def test_delete_me_account_limit_without_ip_limit(
+    client, fake_session, ip_limit_off, monkeypatch
+) -> None:
+    monkeypatch.setattr(auth_endpoints, "verify_password", lambda *_: False)
     codes = [
         (
-            await client.get(
-                f"{URL}/deletion-preview", headers={"X-Forwarded-For": f"203.0.113.{i}"}
+            await client.request(
+                "DELETE", URL, json={"password": "x"}, headers={"X-Forwarded-For": f"203.0.113.{i}"}
             )
         ).status_code
         for i in range(6)
     ]
-    assert codes == [200] * 5 + [429]
+    assert codes == [403] * 5 + [429]

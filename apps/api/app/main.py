@@ -89,6 +89,7 @@ def create_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=CORS_ALLOWED_METHODS,
         allow_headers=CORS_ALLOWED_HEADERS,
+        expose_headers=["Retry-After"],
     )
 
     # The liveness probe stays at the root, outside the versioned API.

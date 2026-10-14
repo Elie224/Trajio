@@ -23,10 +23,15 @@ limiter = Limiter(
 )
 
 
-async def rate_limit_exceeded_handler(_: Request, __: RateLimitExceeded) -> JSONResponse:
+async def rate_limit_exceeded_handler(_: Request, exc: RateLimitExceeded) -> JSONResponse:
+    try:
+        retry_after = int(exc.limit.limit.get_expiry())
+    except AttributeError:
+        retry_after = 60
     return JSONResponse(
         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
         content={"detail": TOO_MANY_REQUESTS_MESSAGE},
+        headers={"Retry-After": str(retry_after)},
     )
 
 
@@ -54,9 +59,11 @@ class AccountRateLimiter:
             while window and now - window[0] > window_seconds:
                 window.popleft()
             if len(window) >= limit:
+                retry_after = max(1, int(window_seconds - (now - window[0])) + 1)
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     detail=TOO_MANY_REQUESTS_MESSAGE,
+                    headers={"Retry-After": str(retry_after)},
                 )
             window.append(now)
 
