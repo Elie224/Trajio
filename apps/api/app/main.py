@@ -6,7 +6,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
+from sqlalchemy.exc import DBAPIError, InterfaceError, OperationalError
 
 from app import __version__
 from app.api.v1.endpoints.health import router as health_router
@@ -16,6 +18,10 @@ from app.core.logging import configure_logging
 from app.core.rate_limit import limiter, rate_limit_exceeded_handler
 
 logger = logging.getLogger("app.startup")
+db_logger = logging.getLogger("app.database")
+
+SERVICE_UNAVAILABLE_DETAIL = "Service indisponible"
+DB_RETRY_AFTER_SECONDS = 5
 
 CORS_ALLOWED_METHODS = ["GET", "POST", "PATCH", "DELETE", "OPTIONS"]
 CORS_ALLOWED_HEADERS = ["Content-Type", "Authorization", "Accept"]
@@ -68,6 +74,34 @@ async def security_headers_middleware(
     return response
 
 
+def _service_unavailable() -> JSONResponse:
+    return JSONResponse(
+        status_code=503,
+        content={"detail": SERVICE_UNAVAILABLE_DETAIL},
+        headers={"Retry-After": str(DB_RETRY_AFTER_SECONDS)},
+    )
+
+
+async def database_unavailable_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Database unreachable: a clean 503, the details stay in the server logs."""
+    db_logger.error(
+        "Database unavailable on %s %s: %s",
+        request.method,
+        request.url.path,
+        type(exc).__name__,
+        exc_info=exc,
+    )
+    return _service_unavailable()
+
+
+async def dbapi_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Other driver errors: 503 if the connection was lost, else an opaque 500."""
+    if isinstance(exc, DBAPIError) and exc.connection_invalidated:
+        return await database_unavailable_handler(request, exc)
+    db_logger.error("Database error on %s %s", request.method, request.url.path, exc_info=exc)
+    return JSONResponse(status_code=500, content={"detail": "Erreur interne"})
+
+
 def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.PROJECT_NAME,
@@ -81,6 +115,9 @@ def create_app() -> FastAPI:
 
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+    for exc_class in (OperationalError, InterfaceError, ConnectionError):
+        app.add_exception_handler(exc_class, database_unavailable_handler)
+    app.add_exception_handler(DBAPIError, dbapi_error_handler)
 
     app.middleware("http")(security_headers_middleware)
     app.add_middleware(

@@ -7,6 +7,7 @@ to start.
 """
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Self
 
 from pydantic import model_validator
@@ -26,6 +27,12 @@ KNOWN_WEAK_SECRETS = frozenset(
         "supersecret",
     }
 )
+# Absolute paths, so the API starts whatever the current working directory.
+# app/core/config.py -> parents[2] is apps/api, parents[4] is the repository root.
+API_DIR = Path(__file__).resolve().parents[2]
+REPO_ROOT = API_DIR.parents[1]
+ENV_FILES = (REPO_ROOT / ".env", API_DIR / ".env")
+
 WEAK_DB_PASSWORDS = frozenset(
     {"", "trajio", "postgres", "password", "admin", "root", "change-me", "changeme"}
 )
@@ -35,7 +42,7 @@ class Settings(BaseSettings):
     """Runtime configuration for the Trajio API."""
 
     model_config = SettingsConfigDict(
-        env_file=("../../.env", ".env"),
+        env_file=ENV_FILES,
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
