@@ -1,13 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { CalendarClock, CircleDashed, Filter, Route, Users } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { ArrowUpDown, CalendarDays, Car, Search, SlidersHorizontal, Star, Users } from "lucide-react";
 
-import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { Card, CardBody, CardTitle } from "@/components/ui/Card";
 import { TrajioMap } from "@/features/map/TrajioMap";
+import { AddressCombobox } from "@/features/search/AddressCombobox";
 import { ApiError, createBooking, searchTrips, type SearchTrip } from "@/lib/api";
+import {
+  addRecentSearch,
+  loadRecentSearches,
+  saveRecentSearches,
+  type RecentSearch,
+} from "@/lib/recent-searches";
+import { estimateTrip, formatDuration } from "@/lib/trip-estimate";
 
 type SearchState =
   | { status: "idle"; items: SearchTrip[] }
@@ -15,10 +22,46 @@ type SearchState =
   | { status: "ready"; items: SearchTrip[] }
   | { status: "error"; items: SearchTrip[]; message: string };
 
+function initials(name: string): string {
+  return (
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? "")
+      .join("") || "?"
+  );
+}
+
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatPrice(ride: SearchTrip): string {
+  return ride.is_paid ? `${((ride.price_per_seat_cents ?? 0) / 100).toFixed(2)} €` : "Gratuit";
+}
+
 export function SearchWorkspace() {
   const [state, setState] = useState<SearchState>({ status: "idle", items: [] });
   const [selectedRideId, setSelectedRideId] = useState<string | null>(null);
   const [requestedSeats, setRequestedSeats] = useState(1);
+  const [pickup, setPickup] = useState("");
+  const [dropoff, setDropoff] = useState("");
+  const [recent, setRecent] = useState<RecentSearch[]>([]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is browser-only
+    setRecent(loadRecentSearches());
+  }, []);
+
+  const pickRecent = (entry: RecentSearch) => {
+    setPickup(entry.pickup);
+    setDropoff(entry.dropoff);
+  };
+  const clearRecent = () => {
+    setRecent([]);
+    saveRecentSearches([]);
+  };
   const [bookingState, setBookingState] = useState<{
     status: "idle" | "submitting" | "error" | "success";
     message: string | null;
@@ -34,281 +77,364 @@ export function SearchWorkspace() {
     [selectedRideId, state.items],
   );
 
+  const pickupPoint = useMemo<[number, number] | undefined>(
+    () => (selectedRide ? [Number(selectedRide.origin_lng), Number(selectedRide.origin_lat)] : undefined),
+    [selectedRide],
+  );
+  const dropoffPoint = useMemo<[number, number] | undefined>(
+    () =>
+      selectedRide
+        ? [Number(selectedRide.destination_lng), Number(selectedRide.destination_lat)]
+        : undefined,
+    [selectedRide],
+  );
+  const estimate = useMemo(
+    () => (pickupPoint && dropoffPoint ? estimateTrip(pickupPoint, dropoffPoint) : null),
+    [pickupPoint, dropoffPoint],
+  );
+
+  const routePoints = useMemo(
+    () => (pickupPoint && dropoffPoint ? [pickupPoint, dropoffPoint] : undefined),
+    [pickupPoint, dropoffPoint],
+  );
+
   return (
-    <section className="page-section">
-      <div className="mx-auto grid w-full max-w-[94rem] gap-5 px-4 lg:grid-cols-[430px_1fr] lg:gap-6 lg:px-6">
-        <aside className="surface h-fit p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h1 className="text-lg font-semibold text-slate-900">Rechercher un trajet</h1>
-              <p className="mt-1 text-sm text-slate-600">
-                Résultats réels issus des trajets publiés.
-              </p>
+    <section className="relative lg:h-[calc(100dvh-4rem)] lg:min-h-[640px]">
+      {/* Full-screen map (behind the panel on desktop, on top on mobile). */}
+      <div className="h-[45vh] min-h-[280px] lg:absolute lg:inset-0 lg:h-full">
+        <TrajioMap
+          className="!min-h-0 !rounded-none !border-0"
+          pickup={pickupPoint}
+          dropoff={dropoffPoint}
+          route={routePoints}
+        />
+      </div>
+
+      {/* Bottom sheet on mobile, floating panel on desktop. */}
+      <div
+        className={
+          "relative z-10 -mt-6 rounded-t-[var(--radius-sheet)] bg-page-surface px-4 pb-8 pt-3 shadow-card " +
+          "lg:absolute lg:bottom-6 lg:left-6 lg:top-6 lg:mt-0 lg:w-[440px] lg:overflow-y-auto " +
+          "lg:rounded-[var(--radius-card)] lg:border lg:border-page-border lg:p-6"
+        }
+      >
+        <div aria-hidden="true" className="mx-auto mb-4 h-1 w-10 rounded-full bg-page-border lg:hidden" />
+
+        <h1 className="sr-only">Rechercher un trajet</h1>
+
+        <nav aria-label="Type de trajet" className="mb-6 grid grid-cols-2 gap-1 rounded-full bg-brand-50 p-1">
+          <span
+            aria-current="page"
+            className="flex min-h-11 items-center justify-center rounded-full bg-primary-strong px-4 text-sm font-medium text-white"
+          >
+            Trouver un trajet
+          </span>
+          <Link
+            href="/offer"
+            className="flex min-h-11 items-center justify-center rounded-full px-4 text-sm font-medium text-page-muted hover:text-page-text"
+          >
+            Proposer un trajet
+          </Link>
+        </nav>
+
+        <form
+          className="grid gap-4"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            const formData = new FormData(event.currentTarget);
+            setState((previous) => ({ status: "loading", items: previous.items }));
+            try {
+              const priceRaw = String(formData.get("priceMax") ?? "").trim();
+              const pickupLatRaw = String(formData.get("pickupLat") ?? "").trim();
+              const pickupLngRaw = String(formData.get("pickupLng") ?? "").trim();
+              const dropoffLatRaw = String(formData.get("dropoffLat") ?? "").trim();
+              const dropoffLngRaw = String(formData.get("dropoffLng") ?? "").trim();
+              const response = await searchTrips({
+                originQuery: pickup.trim() || undefined,
+                destinationQuery: dropoff.trim() || undefined,
+                date: String(formData.get("date") ?? "").trim() || undefined,
+                earliestTime: String(formData.get("time") ?? "").trim() || undefined,
+                passengers: requestedSeats,
+                maxPriceCents: priceRaw ? Number(priceRaw) * 100 : undefined,
+                pickupLat: pickupLatRaw ? Number(pickupLatRaw) : undefined,
+                pickupLng: pickupLngRaw ? Number(pickupLngRaw) : undefined,
+                dropoffLat: dropoffLatRaw ? Number(dropoffLatRaw) : undefined,
+                dropoffLng: dropoffLngRaw ? Number(dropoffLngRaw) : undefined,
+              });
+              setState({ status: "ready", items: response.items });
+              const nextRecent = addRecentSearch(recent, { pickup, dropoff });
+              setRecent(nextRecent);
+              saveRecentSearches(nextRecent);
+              setSelectedRideId(response.items[0]?.id ?? null);
+            } catch (unknownError: unknown) {
+              setState({
+                status: "error",
+                items: [],
+                message:
+                  unknownError instanceof ApiError && unknownError.status === 401
+                    ? "Connectez-vous pour rechercher un trajet."
+                    : unknownError instanceof Error
+                      ? unknownError.message
+                      : "Impossible de récupérer les trajets.",
+              });
+            }
+          }}
+        >
+          {/* Origin / destination linked by a dotted line, with a swap button. */}
+          <div className="relative rounded-[var(--radius-card)] border border-page-border p-4">
+            <div aria-hidden="true" className="absolute bottom-[38px] left-[27px] top-[38px] flex flex-col items-center">
+              <span className="h-3 w-3 rounded-full border-2 border-primary bg-white" />
+              <span className="my-1 w-0 flex-1 border-l-2 border-dotted border-primary" />
+              <span className="h-3 w-3 rounded-full bg-primary-strong" />
             </div>
-            <Badge tone="success">Recherche active</Badge>
+            <div className="grid gap-3 pl-8 pr-14">
+              <AddressCombobox
+                id="search-pickup"
+                name="pickup"
+                label="Départ"
+                placeholder="Ex. Saint-Denis"
+                role="pickup"
+                value={pickup}
+                onChange={setPickup}
+                recent={recent}
+                onPickRecent={pickRecent}
+                onClearRecent={clearRecent}
+              />
+              <AddressCombobox
+                id="search-dropoff"
+                name="dropoff"
+                label="Destination"
+                placeholder="Ex. Paris"
+                role="dropoff"
+                value={dropoff}
+                onChange={setDropoff}
+                recent={recent}
+                onPickRecent={pickRecent}
+                onClearRecent={clearRecent}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setPickup(dropoff);
+                setDropoff(pickup);
+              }}
+              aria-label="Inverser départ et destination"
+              className="absolute right-4 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-page-border bg-white text-primary-strong shadow-card hover:bg-brand-50"
+            >
+              <ArrowUpDown className="h-5 w-5" aria-hidden="true" />
+            </button>
           </div>
 
-          <form
-            className="grid gap-3"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              const formData = new FormData(event.currentTarget);
-              setState((previous) => ({ status: "loading", items: previous.items }));
-              try {
-                const priceRaw = String(formData.get("priceMax") ?? "").trim();
-                const pickupLatRaw = String(formData.get("pickupLat") ?? "").trim();
-                const pickupLngRaw = String(formData.get("pickupLng") ?? "").trim();
-                const dropoffLatRaw = String(formData.get("dropoffLat") ?? "").trim();
-                const dropoffLngRaw = String(formData.get("dropoffLng") ?? "").trim();
-                const response = await searchTrips({
-                  originQuery: String(formData.get("pickup") ?? "").trim() || undefined,
-                  destinationQuery: String(formData.get("dropoff") ?? "").trim() || undefined,
-                  date: String(formData.get("date") ?? "").trim() || undefined,
-                  earliestTime: String(formData.get("time") ?? "").trim() || undefined,
-                  passengers: requestedSeats,
-                  maxPriceCents: priceRaw ? Number(priceRaw) * 100 : undefined,
-                  pickupLat: pickupLatRaw ? Number(pickupLatRaw) : undefined,
-                  pickupLng: pickupLngRaw ? Number(pickupLngRaw) : undefined,
-                  dropoffLat: dropoffLatRaw ? Number(dropoffLatRaw) : undefined,
-                  dropoffLng: dropoffLngRaw ? Number(dropoffLngRaw) : undefined,
-                });
-                setState({ status: "ready", items: response.items });
-                setSelectedRideId(response.items[0]?.id ?? null);
-              } catch (unknownError: unknown) {
-                setState({
-                  status: "error",
-                  items: [],
-                  message:
-                    unknownError instanceof ApiError && unknownError.status === 401
-                      ? "Connectez-vous pour rechercher un trajet."
-                      : unknownError instanceof Error
-                        ? unknownError.message
-                      : "Impossible de récupérer les trajets.",
-                });
-              }
-            }}
-          >
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="search-pickup" className="label">
-                Départ
+              <label htmlFor="search-date" className="label">
+                <CalendarDays className="mr-1 h-4 w-4" aria-hidden="true" /> Date
               </label>
-              <input id="search-pickup" name="pickup" className="field" placeholder="Ex. Saint-Denis" />
+              <input id="search-date" name="date" type="date" className="field" />
             </div>
             <div>
-              <label htmlFor="search-dropoff" className="label">
-                Destination
+              <label htmlFor="search-seat" className="label">
+                <Users className="mr-1 h-4 w-4" aria-hidden="true" /> Passagers
               </label>
-              <input id="search-dropoff" name="dropoff" className="field" placeholder="Ex. Paris" />
+              <input
+                id="search-seat"
+                name="passengers"
+                type="number"
+                min={1}
+                max={6}
+                value={requestedSeats}
+                onChange={(event) => {
+                  const parsed = Number(event.target.value);
+                  if (Number.isNaN(parsed)) return;
+                  setRequestedSeats(Math.min(6, Math.max(1, parsed)));
+                }}
+                className="field"
+              />
             </div>
-            <div className="grid grid-cols-2 gap-2.5">
-              <div>
-                <label htmlFor="search-date" className="label">
-                  Date
-                </label>
-                <input id="search-date" name="date" type="date" className="field" />
-              </div>
-              <div>
-                <label htmlFor="search-time" className="label">
-                  Heure la plus tôt
-                </label>
-                <input id="search-time" name="time" type="time" className="field" />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2.5">
-              <div>
-                <label htmlFor="search-pickup-lat" className="label">
-                  Latitude départ (optionnel)
-                </label>
-                <input
-                  id="search-pickup-lat"
-                  name="pickupLat"
-                  type="number"
-                  step="0.000001"
-                  min={-90}
-                  max={90}
-                  className="field"
-                  placeholder="48.856614"
-                />
-              </div>
-              <div>
-                <label htmlFor="search-pickup-lng" className="label">
-                  Longitude départ (optionnel)
-                </label>
-                <input
-                  id="search-pickup-lng"
-                  name="pickupLng"
-                  type="number"
-                  step="0.000001"
-                  min={-180}
-                  max={180}
-                  className="field"
-                  placeholder="2.352222"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2.5">
-              <div>
-                <label htmlFor="search-dropoff-lat" className="label">
-                  Latitude destination (optionnel)
-                </label>
-                <input
-                  id="search-dropoff-lat"
-                  name="dropoffLat"
-                  type="number"
-                  step="0.000001"
-                  min={-90}
-                  max={90}
-                  className="field"
-                  placeholder="48.856614"
-                />
-              </div>
-              <div>
-                <label htmlFor="search-dropoff-lng" className="label">
-                  Longitude destination (optionnel)
-                </label>
-                <input
-                  id="search-dropoff-lng"
-                  name="dropoffLng"
-                  type="number"
-                  step="0.000001"
-                  min={-180}
-                  max={180}
-                  className="field"
-                  placeholder="2.352222"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2.5">
-              <div>
-                <label htmlFor="search-seat" className="label">
-                  Passagers
-                </label>
-                <input
-                  id="search-seat"
-                  name="passengers"
-                  type="number"
-                  min={1}
-                  max={6}
-                  value={requestedSeats}
-                  onChange={(event) => {
-                    const parsed = Number(event.target.value);
-                    if (Number.isNaN(parsed)) return;
-                    setRequestedSeats(Math.min(6, Math.max(1, parsed)));
-                  }}
-                  className="field"
-                />
-              </div>
-              <div>
-                <label htmlFor="search-price" className="label">
-                  Prix max (€)
-                </label>
-                <input id="search-price" name="priceMax" type="number" min={0} defaultValue={20} className="field" />
-              </div>
-            </div>
-            <Button type="submit">
-              <Filter className="h-4 w-4" />
-              {state.status === "loading" ? "Recherche..." : "Rechercher"}
-            </Button>
-          </form>
+          </div>
 
-          {state.status === "error" && <p className="mt-4 text-sm text-rose-700">{state.message}</p>}
+          <details className="group rounded-[var(--radius-control)] border border-page-border">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 text-sm font-medium text-page-muted">
+              <SlidersHorizontal className="h-4 w-4" aria-hidden="true" /> Plus de filtres
+            </summary>
+            <div className="grid gap-3 p-4 pt-1">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="search-time" className="label">
+                    Heure la plus tôt
+                  </label>
+                  <input id="search-time" name="time" type="time" className="field" />
+                </div>
+                <div>
+                  <label htmlFor="search-price" className="label">
+                    Prix max (€)
+                  </label>
+                  <input id="search-price" name="priceMax" type="number" min={0} defaultValue={20} className="field" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="search-pickup-lat" className="label">
+                    Latitude départ
+                  </label>
+                  <input id="search-pickup-lat" name="pickupLat" type="number" step="0.000001" min={-90} max={90} className="field" placeholder="48.856614" />
+                </div>
+                <div>
+                  <label htmlFor="search-pickup-lng" className="label">
+                    Longitude départ
+                  </label>
+                  <input id="search-pickup-lng" name="pickupLng" type="number" step="0.000001" min={-180} max={180} className="field" placeholder="2.352222" />
+                </div>
+                <div>
+                  <label htmlFor="search-dropoff-lat" className="label">
+                    Latitude arrivée
+                  </label>
+                  <input id="search-dropoff-lat" name="dropoffLat" type="number" step="0.000001" min={-90} max={90} className="field" placeholder="48.856614" />
+                </div>
+                <div>
+                  <label htmlFor="search-dropoff-lng" className="label">
+                    Longitude arrivée
+                  </label>
+                  <input id="search-dropoff-lng" name="dropoffLng" type="number" step="0.000001" min={-180} max={180} className="field" placeholder="2.352222" />
+                </div>
+              </div>
+            </div>
+          </details>
 
-          <div className="mt-6 grid gap-3">
-            {state.items.length === 0 && state.status !== "loading" && (
-              <Card className="p-4">
-                <CardTitle>Aucun trajet trouvé</CardTitle>
-                <CardBody>Publiez un trajet depuis &quot;Proposer un trajet&quot; puis relancez la recherche.</CardBody>
-              </Card>
-            )}
+          <Button type="submit" className="!w-full" disabled={state.status === "loading"}>
+            <Search className="h-5 w-5" aria-hidden="true" />
+            {state.status === "loading" ? "Recherche…" : "Rechercher"}
+          </Button>
+        </form>
 
+        <div className="mt-6">
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2 className="text-lg text-page-text">Trajets disponibles</h2>
+            <p role="status" aria-live="polite" className="text-sm text-page-muted">
+              {state.status === "loading"
+                ? "Recherche en cours…"
+                : state.status === "ready"
+                  ? `${state.items.length} résultat${state.items.length > 1 ? "s" : ""}`
+                  : ""}
+            </p>
+          </div>
+
+          {selectedRide && estimate && (
+            <section
+              aria-labelledby="trip-summary-title"
+              className="mb-4 rounded-[var(--radius-card)] bg-brand-50 p-4"
+            >
+              <div className="flex items-baseline justify-between gap-2">
+                <h3 id="trip-summary-title" className="text-base text-page-text">
+                  Résumé du trajet
+                </h3>
+                <span className="text-sm text-page-muted">estimation</span>
+              </div>
+              <p className="mt-1 truncate text-sm text-page-muted">
+                {selectedRide.origin_label} → {selectedRide.destination_label}
+              </p>
+              <dl className="mt-3 grid grid-cols-2 gap-2">
+                <div>
+                  <dt className="text-sm text-page-muted">Distance</dt>
+                  <dd className="figure text-base text-page-text">
+                    ≈ {Math.round(estimate.distanceKm).toLocaleString("fr-FR")} km
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-sm text-page-muted">Durée</dt>
+                  <dd className="figure text-base text-page-text">≈ {formatDuration(estimate.durationMin)}</dd>
+                </div>
+</dl>
+              <p className="mt-2 text-sm text-page-muted">
+                Estimation : distance à vol d&apos;oiseau × 1,3, à 45 km/h de moyenne.
+              </p>
+            </section>
+          )}
+
+          {state.status === "error" && (
+            <p role="alert" className="mb-3 text-sm text-danger">
+              {state.message}
+            </p>
+          )}
+
+          {state.items.length === 0 && state.status !== "loading" && (
+            <div className="rounded-[var(--radius-card)] border border-dashed border-page-border p-4 text-sm text-page-muted">
+              {state.status === "ready"
+                ? "Aucun trajet trouvé. Essayez une autre date ou élargissez vos filtres."
+                : "Indiquez votre départ et votre destination pour voir les conducteurs qui passent près de vous."}
+            </div>
+          )}
+
+          <ul className="grid gap-3">
             {state.items.map((ride) => {
               const active = selectedRide?.id === ride.id;
+              const booking = bookingState.tripId === ride.id ? bookingState : null;
               return (
-                <Card
+                <li
                   key={ride.id}
                   className={
-                    "cursor-pointer p-4 transition " +
-                    (active
-                      ? "ring-2 ring-brand-500 shadow-[0_10px_24px_rgba(16,185,129,0.15)]"
-                      : "hover:-translate-y-0.5 hover:ring-slate-300")
+                    "rounded-[var(--radius-card)] border bg-page-surface p-4 shadow-card transition " +
+                    (active ? "border-primary ring-2 ring-active" : "border-page-border hover:border-brand-300")
                   }
                 >
                   <button
                     type="button"
                     onClick={() => setSelectedRideId(ride.id)}
-                    className="w-full text-left"
-                    aria-label={"Voir le trajet de " + ride.driver_name}
+                    aria-pressed={active}
+                    aria-label={`Afficher sur la carte le trajet de ${ride.driver_name}, ${ride.origin_label} vers ${ride.destination_label}`}
+                    className="w-full rounded-[var(--radius-control)] text-left"
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <CardTitle>{ride.driver_name}</CardTitle>
-                        <CardBody>
-                          {ride.origin_label} → {ride.destination_label}
-                        </CardBody>
-                        <p className="mt-1 text-xs text-slate-500">{ride.vehicle_label}</p>
+                    <div className="flex items-start gap-3">
+                      <span
+                        aria-hidden="true"
+                        className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-active font-heading text-sm font-semibold text-primary-strong"
+                      >
+                        {initials(ride.driver_name)}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium text-page-text">{ride.driver_name}</p>
+                        <p className="flex items-center gap-1 text-sm text-page-muted">
+                          <Star className="h-4 w-4 text-star" aria-hidden="true" />
+                          <span>Pas encore d&apos;avis</span>
+                        </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-semibold text-emerald-700">
-                          Match {Math.round(ride.match_score * 100)}%
-                        </p>
-                        <p className="text-lg font-semibold text-brand-700">
-                          {ride.is_paid ? `${((ride.price_per_seat_cents ?? 0) / 100).toFixed(2)} €` : "Gratuit"}
-                        </p>
-                        <p className="text-xs text-slate-500">par passager</p>
+                        <p className="figure text-lg text-page-text">{formatPrice(ride)}</p>
+                        <p className="text-sm text-page-muted">par place</p>
                       </div>
                     </div>
-                    <dl className="mt-3 grid grid-cols-4 gap-2 text-xs text-slate-500">
-                      <div>
-                        <dt className="sr-only">Heure</dt>
-                        <dd className="inline-flex items-center gap-1">
-                          <CalendarClock className="h-3.5 w-3.5" />{" "}
-                          {new Date(ride.departure_time).toLocaleTimeString("fr-FR", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="sr-only">Distance</dt>
-                        <dd className="inline-flex items-center gap-1">
-                          <Route className="h-3.5 w-3.5" /> Itinéraire
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="sr-only">Durée</dt>
-                        <dd className="inline-flex items-center gap-1">
-                          <CircleDashed className="h-3.5 w-3.5" /> Direct
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="sr-only">Places</dt>
-                        <dd className="inline-flex items-center gap-1">
-                          <Users className="h-3.5 w-3.5" /> {ride.seats_available} places
-                        </dd>
-                      </div>
-                    </dl>
-                    <ul className="mt-3 list-disc space-y-1 pl-4 text-xs text-slate-500">
-                      {ride.match_reasons.slice(0, 2).map((reason) => (
-                        <li key={reason}>{reason}</li>
-                      ))}
-                    </ul>
+
+                    <div className="mt-3 flex items-center gap-3 text-sm">
+                      <span className="figure text-base text-page-text">{formatTime(ride.departure_time)}</span>
+                      <span className="min-w-0 flex-1 truncate text-page-muted">
+                        {ride.origin_label} → {ride.destination_label}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-between gap-3 text-sm text-page-muted">
+                      <span className="inline-flex items-center gap-1 font-medium text-primary-strong">
+                        <Users className="h-4 w-4" aria-hidden="true" />
+                        <span className="figure">{ride.seats_available}</span>
+                        {ride.seats_available > 1 ? " places" : " place"}
+                      </span>
+                      <span className="inline-flex min-w-0 items-center gap-1 truncate">
+                        <Car className="h-4 w-4 shrink-0" aria-hidden="true" />
+                        <span className="truncate">{ride.vehicle_label}</span>
+                      </span>
+                      <span className="shrink-0">Match {Math.round(ride.match_score * 100)} %</span>
+                    </div>
                   </button>
-                  <div className="mt-3 border-t border-slate-200 pt-3">
+
+                  <div className="mt-4">
                     <Button
                       type="button"
-                      className="w-full"
-                      disabled={bookingState.status === "submitting" && bookingState.tripId === ride.id}
+                      className="!w-full"
+                      disabled={booking?.status === "submitting"}
                       onClick={async () => {
-                        setBookingState({
-                          status: "submitting",
-                          message: null,
-                          tripId: ride.id,
-                        });
+                        setBookingState({ status: "submitting", message: null, tripId: ride.id });
                         try {
-                          await createBooking({
-                            tripId: ride.id,
-                            requestedSeats,
-                          });
+                          await createBooking({ tripId: ride.id, requestedSeats });
                           setBookingState({
                             status: "success",
                             message: "Réservation envoyée au conducteur.",
@@ -326,59 +452,24 @@ export function SearchWorkspace() {
                         }
                       }}
                     >
-                      {bookingState.status === "submitting" && bookingState.tripId === ride.id
-                        ? "Réservation..."
-                        : "Réserver ce trajet"}
+                      {booking?.status === "submitting" ? "Réservation…" : "Réserver ce trajet"}
                     </Button>
-                    {bookingState.tripId === ride.id && bookingState.message && (
+                    {booking?.message && (
                       <p
+                        role={booking.status === "error" ? "alert" : "status"}
                         className={
-                          "mt-2 text-xs " +
-                          (bookingState.status === "success" ? "text-emerald-700" : "text-rose-700")
+                          "mt-2 text-sm " + (booking.status === "success" ? "text-primary-strong" : "text-danger")
                         }
                       >
-                        {bookingState.message}
+                        {booking.message}
                       </p>
                     )}
                   </div>
-                </Card>
+                </li>
               );
             })}
-          </div>
-        </aside>
-
-        <section className="surface p-3 sm:p-4">
-          <div className="mb-3 flex items-center justify-between px-2">
-            <h2 className="text-sm font-semibold text-slate-800">Carte du trajet sélectionné</h2>
-            <p className="text-xs text-slate-500">
-              {selectedRide
-                ? `${selectedRide.origin_label} → ${selectedRide.destination_label}`
-                : "Sélectionnez un trajet"}
-            </p>
-          </div>
-          <div className="h-[520px] lg:h-[760px]">
-            <TrajioMap
-              pickup={
-                selectedRide
-                  ? [Number(selectedRide.origin_lng), Number(selectedRide.origin_lat)]
-                  : undefined
-              }
-              dropoff={
-                selectedRide
-                  ? [Number(selectedRide.destination_lng), Number(selectedRide.destination_lat)]
-                  : undefined
-              }
-              route={
-                selectedRide
-                  ? [
-                      [Number(selectedRide.origin_lng), Number(selectedRide.origin_lat)],
-                      [Number(selectedRide.destination_lng), Number(selectedRide.destination_lat)],
-                    ]
-                  : undefined
-              }
-            />
-          </div>
-        </section>
+          </ul>
+        </div>
       </div>
     </section>
   );
