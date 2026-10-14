@@ -7,7 +7,9 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardTitle } from "@/components/ui/Card";
 import { Container } from "@/components/ui/Container";
+import { PASSWORD_RESET_FLAG } from "@/lib/account-flags";
 import { ApiError, login } from "@/lib/api";
+import { env } from "@/lib/env";
 import { retryAfterMinutes } from "@/lib/retry-after";
 import { safeNextPath } from "@/lib/safe-redirect";
 
@@ -16,6 +18,21 @@ export function LoginForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Timestamp (ms) until which the submit button stays disabled after a 429.
+  const [email, setEmail] = useState("");
+  const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem(PASSWORD_RESET_FLAG)) {
+        sessionStorage.removeItem(PASSWORD_RESET_FLAG);
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- reads browser-only storage once
+        setNotice("Mot de passe modifié, vous avez été déconnecté de tous vos appareils.");
+      }
+    } catch {
+      // Storage unavailable: nothing to show.
+    }
+  }, []);
+
   const [lockedUntil, setLockedUntil] = useState<number | null>(null);
   const [now, setNow] = useState(0);
 
@@ -42,6 +59,11 @@ export function LoginForm() {
           <div className="mb-5">
             <CardTitle>Connexion</CardTitle>
           </div>
+          {notice && (
+            <p role="status" className="mb-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              {notice}
+            </p>
+          )}
           <form
             className="grid gap-3"
             onSubmit={async (event) => {
@@ -88,6 +110,8 @@ export function LoginForm() {
                 id="login-email"
                 type="email"
                 name="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
                 className="field"
                 placeholder="vous@trajio.fr"
                 required
@@ -121,6 +145,14 @@ export function LoginForm() {
                   ? `Se connecter (${Math.floor(remainingSeconds / 60)}:${String(remainingSeconds % 60).padStart(2, "0")})`
                   : "Se connecter"}
             </Button>
+              {env.passwordResetEnabled && (
+              <Link
+                href={email ? `/forgot-password?email=${encodeURIComponent(email)}` : "/forgot-password"}
+                className="text-center text-sm font-medium text-brand-700 hover:text-brand-800"
+              >
+                Mot de passe oublié ?
+              </Link>
+            )}
           </form>
           <CardBody>
             Pas encore de compte ?{" "}

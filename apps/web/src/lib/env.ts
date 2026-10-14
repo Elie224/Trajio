@@ -48,6 +48,8 @@ export function resolveApiBaseUrl(
 export const env = {
   /** Base URL of the Trajio REST API, reachable from the browser. */
   apiBaseUrl: resolveApiBaseUrl(),
+  /** Shows the "Mot de passe oublié ?" link on /login (off until emails are sent). */
+  passwordResetEnabled: process.env.NEXT_PUBLIC_PASSWORD_RESET_ENABLED === "true",
   /** Short human name shown in the UI. */
   appName: "Trajio",
 } as const;

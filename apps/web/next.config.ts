@@ -43,7 +43,14 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // Pages that may carry a secret token or an email in the URL: never leak it.
+      ...["/reset-password", "/forgot-password"].map((source) => ({
+        source,
+        headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
+      })),
+    ];
   },
   // Emits a self-contained .next/standalone server, used by the production image.
   output: "standalone",

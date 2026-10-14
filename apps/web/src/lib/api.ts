@@ -144,6 +144,27 @@ export async function fetchDeletionPreview(): Promise<unknown> {
   return fetchJson<unknown>("/api/v1/auth/me/deletion-preview");
 }
 
+/** Always answers the same generic message; the dev-only reset_token is dropped here. */
+export async function requestPasswordReset(email: string): Promise<{ message: string }> {
+  const body = await fetchJson<{ message: string; reset_token?: string | null }>(
+    "/api/v1/auth/forgot-password",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    },
+  );
+  return { message: body.message };
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+  return fetchJson<{ message: string }>("/api/v1/auth/reset-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, new_password: newPassword }),
+  });
+}
+
 export async function fetchCurrentUser(): Promise<UserProfile> {
   return fetchJson<UserProfile>("/api/v1/auth/me");
 }
