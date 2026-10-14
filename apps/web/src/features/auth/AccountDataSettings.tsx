@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardTitle } from "@/components/ui/Card";
+import { clearUserSessionData } from "@/features/auth/session";
 import { ACCOUNT_DELETED_FLAG } from "@/lib/account-flags";
 import { ApiError, deleteAccount, exportMyData, fetchDeletionPreview } from "@/lib/api";
 import { retryAfterMinutes } from "@/lib/retry-after";
@@ -190,6 +191,7 @@ function DeleteAccountDialog({ open, onClose }: { open: boolean; onClose: () => 
     try {
       await deleteAccount(value);
       setPassword("");
+      clearUserSessionData();
       try {
         sessionStorage.setItem(ACCOUNT_DELETED_FLAG, "1");
       } catch {

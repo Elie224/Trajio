@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardTitle } from "@/components/ui/Card";
 import { Container } from "@/components/ui/Container";
 import { PASSWORD_RESET_FLAG } from "@/lib/account-flags";
+import { resetSession } from "@/features/auth/session";
 import { ApiError, login } from "@/lib/api";
 import { env } from "@/lib/env";
 import { retryAfterMinutes } from "@/lib/retry-after";
@@ -77,6 +78,7 @@ export function LoginForm() {
                   String(formData.get("email") ?? ""),
                   String(formData.get("password") ?? ""),
                 );
+                resetSession();
                 const next = new URLSearchParams(window.location.search).get("next");
                 router.push(safeNextPath(next, window.location.origin));
                 router.refresh();

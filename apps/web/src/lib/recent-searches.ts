@@ -66,3 +66,8 @@ function safeStorage(): StorageLike | undefined {
     return undefined;
   }
 }
+
+/** Removes the stored history (logout, account deletion). */
+export function clearRecentSearches(storage: StorageLike | undefined = safeStorage()) {
+  saveRecentSearches([], storage);
+}

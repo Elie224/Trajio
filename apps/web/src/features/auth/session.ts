@@ -3,6 +3,7 @@
  * /auth/me request per page load instead of one per component.
  */
 import { fetchCurrentUser, isUnauthenticated, type UserProfile } from "@/lib/api";
+import { clearRecentSearches } from "@/lib/recent-searches";
 
 let pending: Promise<UserProfile | null> | null = null;
 
@@ -16,4 +17,15 @@ export function getSession(): Promise<UserProfile | null> {
     });
   }
   return pending;
+}
+
+/** Forgets the cached session: call after login, logout or account deletion. */
+export function resetSession(): void {
+  pending = null;
+}
+
+/** Logout / account deletion: drop the cached session and per-user local data. */
+export function clearUserSessionData(): void {
+  resetSession();
+  clearRecentSearches();
 }
