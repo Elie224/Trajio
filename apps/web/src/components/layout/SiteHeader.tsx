@@ -1,129 +1,115 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, CarFront, MapPinned } from "lucide-react";
+import { CarFront, Menu, X } from "lucide-react";
 
+import { buttonClasses } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
 import { AuthActions } from "@/features/auth/AuthActions";
-import { getSession } from "@/features/auth/session";
+import { useSession } from "@/features/auth/useSession";
 import { env } from "@/lib/env";
 import { loginHref } from "@/lib/safe-redirect";
 
-/** Shown only to signed-in users. */
-const ACCOUNT_ITEM = { href: "/account", label: "Mon compte" } as const;
-
+/** "Accueil" is the logo; "Mon compte" only when signed in. */
 const NAV_ITEMS = [
-  { href: "/", label: "Accueil" },
   { href: "/search", label: "Rechercher" },
   { href: "/offer", label: "Proposer un trajet" },
   { href: "/trips", label: "Mes trajets" },
   { href: "/messages", label: "Messages" },
 ] as const;
+const ACCOUNT_ITEM = { href: "/account", label: "Mon compte" } as const;
 
+function isActive(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(href + "/");
+}
+
+/**
+ * < 768px: logo only (navigation lives in the bottom tab bar).
+ * 768–1023px: compact menu button. >= 1024px: inline nav, never wraps.
+ */
 export function SiteHeader() {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const pathname = usePathname();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    getSession()
-      .then((user) => {
-        if (!cancelled) setIsLoggedIn(user !== null);
-      })
-      .catch(() => {
-        if (!cancelled) setIsLoggedIn(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
+  const session = useSession();
+  const isLoggedIn = session.status === "authenticated";
   const navItems = isLoggedIn ? [...NAV_ITEMS, ACCOUNT_ITEM] : NAV_ITEMS;
-
-  const closeMenu = () => setIsMobileMenuOpen(false);
+  const closeMenu = () => setIsMenuOpen(false);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/90 backdrop-blur">
-      <Container className="flex h-16 items-center justify-between gap-6">
-        <Link href="/" className="flex items-center gap-2.5">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-600 text-white shadow-sm">
+    <header className="sticky top-0 z-30 border-b border-page-border bg-white/95 backdrop-blur">
+      <Container className="flex h-16 items-center justify-between gap-4">
+        <Link href="/" className="flex min-h-11 shrink-0 items-center gap-2.5" aria-label={`${env.appName}, accueil`}>
+          <span className="grid h-9 w-9 place-items-center rounded-[var(--radius-control)] bg-primary-strong text-white">
             <CarFront className="h-5 w-5" aria-hidden="true" />
           </span>
-          <div className="flex flex-col leading-none">
-            <span className="text-[1.02rem] font-semibold tracking-tight text-slate-900">
-              {env.appName}
-            </span>
-            <span className="text-[0.71rem] font-medium uppercase tracking-[0.13em] text-brand-700">
-              covoiturage de proximité
-            </span>
-          </div>
+          <span className="flex flex-col leading-tight">
+            <span className="font-heading text-base font-semibold text-page-text">{env.appName}</span>
+            <span className="text-sm text-primary-strong">Covoiturage de proximité</span>
+          </span>
         </Link>
 
-        <nav className="hidden items-center gap-6 text-sm font-medium text-slate-600 lg:flex">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="transition-colors hover:text-slate-900"
-            >
-              {item.label}
-            </Link>
-          ))}
+        <nav aria-label="Navigation principale" className="hidden items-center gap-1 whitespace-nowrap lg:flex">
+          {navItems.map((item) => {
+            const active = isActive(pathname, item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                className={
+                  "inline-flex min-h-11 items-center rounded-[var(--radius-control)] px-3 text-sm font-medium transition-colors " +
+                  (active ? "bg-active text-primary-strong" : "text-page-muted hover:text-page-text")
+                }
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
 
-        <AuthActions />
-
-        <button
-          type="button"
-          className="rounded-xl border border-slate-200 p-2 text-slate-600 sm:hidden"
-          aria-expanded={isMobileMenuOpen}
-          aria-controls="mobile-navigation"
-          onClick={() => setIsMobileMenuOpen((open) => !open)}
-        >
-          <Menu className="h-5 w-5" aria-hidden="true" />
-          <span className="sr-only">Ouvrir le menu</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <AuthActions />
+          <button
+            type="button"
+            className="hidden h-11 w-11 place-items-center rounded-[var(--radius-control)] border border-page-border text-page-muted md:grid lg:hidden"
+            aria-expanded={isMenuOpen}
+            aria-controls="compact-navigation"
+            onClick={() => setIsMenuOpen((open) => !open)}
+          >
+            {isMenuOpen ? <X className="h-5 w-5" aria-hidden="true" /> : <Menu className="h-5 w-5" aria-hidden="true" />}
+            <span className="sr-only">{isMenuOpen ? "Fermer le menu" : "Ouvrir le menu"}</span>
+          </button>
+        </div>
       </Container>
 
-      {isMobileMenuOpen && (
-        <div id="mobile-navigation" className="border-t border-slate-200 bg-white sm:hidden">
+      {isMenuOpen && (
+        <div id="compact-navigation" className="hidden border-t border-page-border bg-white md:block lg:hidden">
           <Container className="py-3">
-            <div className="surface p-3">
-              <div className="mb-2 flex items-center gap-2 px-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                <MapPinned className="h-3.5 w-3.5" /> Navigation
-              </div>
-              <div className="flex flex-col gap-1">
-                {navItems.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={closeMenu}
-                    className="rounded-lg px-2.5 py-2 text-sm text-slate-700 hover:bg-slate-50"
-                  >
-                    {item.label}
-                  </Link>
-                ))}
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3">
+            <nav aria-label="Navigation principale" className="grid gap-1">
+              {navItems.map((item) => (
                 <Link
-                  href={loginHref(pathname)}
+                  key={item.href}
+                  href={item.href}
                   onClick={closeMenu}
-                  className="rounded-lg border border-slate-200 px-2.5 py-2 text-center text-sm font-medium text-slate-700"
+                  aria-current={isActive(pathname, item.href) ? "page" : undefined}
+                  className="flex min-h-11 items-center rounded-[var(--radius-control)] px-3 text-base text-page-text hover:bg-brand-50"
                 >
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+            {session.status === "anonymous" && (
+              <div className="mt-3 grid grid-cols-2 gap-2 border-t border-page-border pt-3">
+                <Link href={loginHref(pathname)} onClick={closeMenu} className={buttonClasses("secondary", "!w-full")}>
                   Connexion
                 </Link>
-                <Link
-                  href="/signup"
-                  onClick={closeMenu}
-                  className="rounded-lg bg-brand-600 px-2.5 py-2 text-center text-sm font-medium text-white"
-                >
+                <Link href="/signup" onClick={closeMenu} className={buttonClasses("primary", "!w-full")}>
                   Inscription
                 </Link>
               </div>
-            </div>
+            )}
           </Container>
         </div>
       )}

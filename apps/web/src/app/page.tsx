@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { Container } from "@/components/ui/Container";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
+import { Button, buttonClasses } from "@/components/ui/Button";
 import { Card, CardBody, CardTitle } from "@/components/ui/Card";
 import { ApiStatusCard } from "@/features/system-health/ApiStatusCard";
 import { TrajioMap } from "@/features/map/TrajioMap";
@@ -43,14 +43,14 @@ export default function Home() {
   return (
     <>
       <AccountDeletedNotice />
-      <section className="border-b border-slate-200 bg-white">
+      <section className="border-b border-page-border bg-white">
         <Container className="grid gap-8 py-10 lg:grid-cols-[1.05fr_1fr] lg:py-14">
           <div>
             <Badge tone="success">Lancement local • Phase 1 UI/UX</Badge>
-            <h1 className="mt-5 text-4xl font-bold leading-tight tracking-tight text-slate-900 sm:text-5xl">
+            <h1 className="mt-5 text-4xl font-bold leading-tight tracking-tight text-page-text sm:text-5xl">
               Même direction, partageons le trajet.
             </h1>
-            <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
+            <p className="mt-4 max-w-2xl text-base leading-7 text-page-muted sm:text-lg">
               Trajio rapproche les conducteurs ayant des places libres et les passagers qui vont
               dans la même direction, même lorsque les points de départ et d&apos;arrivée diffèrent.
             </p>
@@ -112,7 +112,7 @@ export default function Home() {
                 </Button>
                 <Link
                   href="/offer"
-                  className="inline-flex w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  className={buttonClasses("secondary", "!w-full")}
                 >
                   Proposer un trajet
                 </Link>
@@ -121,7 +121,7 @@ export default function Home() {
           </div>
 
           <div className="surface p-3">
-            <div className="mb-2 px-2 text-xs font-medium uppercase tracking-[0.12em] text-slate-500">
+            <div className="mb-2 px-2 text-xs font-medium text-page-muted">
               Carte interactive
             </div>
             <div className="h-[320px] sm:h-[420px]">
@@ -153,9 +153,9 @@ export default function Home() {
         </Container>
       </section>
 
-      <section className="border-y border-slate-200 bg-white page-section">
+      <section className="border-y border-page-border bg-white page-section">
         <Container>
-          <h2 className="text-2xl font-semibold tracking-tight text-slate-900">
+          <h2 className="text-2xl font-semibold tracking-tight text-page-text">
             Pourquoi choisir Trajio ?
           </h2>
           <div className="mt-6 grid gap-4 md:grid-cols-3">

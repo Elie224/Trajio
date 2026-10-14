@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Poppins } from "next/font/google";
 
 import { SiteFooter } from "@/components/layout/SiteFooter";
+import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 
 import "./globals.css";
@@ -20,6 +21,8 @@ export const viewport: Viewport = {
   themeColor: "#059669",
   width: "device-width",
   initialScale: 1,
+  // Lets env(safe-area-inset-bottom) work under the mobile tab bar.
+  viewportFit: "cover",
 };
 
 /**
@@ -42,10 +45,11 @@ const poppins = Poppins({
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="fr" className={`h-full ${inter.variable} ${poppins.variable}`}>
-      <body className="flex min-h-full flex-col font-sans antialiased">
+      <body className="flex min-h-full flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] font-sans antialiased md:pb-0">
         <SiteHeader />
         <main className="flex-1">{children}</main>
         <SiteFooter />
+        <BottomTabBar />
       </body>
     </html>
   );

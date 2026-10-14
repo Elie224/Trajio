@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { buttonClasses } from "@/components/ui/Button";
 import { usePathname } from "next/navigation";
 
 import { Card, CardBody, CardTitle } from "@/components/ui/Card";
@@ -55,7 +56,7 @@ export function AccountSettings() {
               <div className="mt-4 flex gap-2">
                 <Link
                   href={loginHref(pathname)}
-                  className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+                  className={buttonClasses("primary")}
                 >
                   Se connecter
                 </Link>
@@ -70,7 +71,7 @@ export function AccountSettings() {
   return (
     <section className="page-section">
       <Container className="grid max-w-3xl gap-5">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Mon compte</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-page-text">Mon compte</h1>
         <AccountDataSettings />
       </Container>
     </section>

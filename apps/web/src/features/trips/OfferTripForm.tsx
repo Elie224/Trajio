@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
+import { Button, buttonClasses } from "@/components/ui/Button";
 import { Card, CardBody, CardTitle } from "@/components/ui/Card";
 import { Container } from "@/components/ui/Container";
 import { TrajioMap } from "@/features/map/TrajioMap";
@@ -94,7 +94,7 @@ export function OfferTripForm() {
             <div className="mt-4">
               <Link
                 href={loginHref(pathname)}
-                className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+                className={buttonClasses("primary")}
               >
                 Se connecter
               </Link>
@@ -123,8 +123,8 @@ export function OfferTripForm() {
       <Container className="max-w-6xl">
         <div className="mb-6 flex items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold text-slate-900 sm:text-3xl">Proposer un trajet</h1>
-            <p className="mt-2 text-sm text-slate-600">
+            <h1 className="text-2xl font-semibold text-page-text sm:text-3xl">Proposer un trajet</h1>
+            <p className="mt-2 text-sm text-page-muted">
               Publication réelle vers l&apos;API. Assurez-vous d&apos;avoir au moins un véhicule actif.
             </p>
           </div>
@@ -315,7 +315,7 @@ export function OfferTripForm() {
                 />
               </div>
               <div className="grid grid-cols-[auto_1fr] items-end gap-3">
-                <label className="mb-0 inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+                <label className="mb-0 inline-flex items-center gap-2 text-sm font-medium text-page-text">
                   <input type="checkbox" name="is_paid" />
                   Trajet payant
                 </label>
@@ -351,7 +351,7 @@ export function OfferTripForm() {
                   placeholder="Point de rendez-vous exact, contraintes..."
                 />
               </div>
-              {error && <p className="sm:col-span-2 text-sm text-rose-700">{error}</p>}
+              {error && <p className="sm:col-span-2 text-sm text-danger">{error}</p>}
               {message && <p className="sm:col-span-2 text-sm text-emerald-700">{message}</p>}
               <div className="sm:col-span-2">
                 <Button type="submit" disabled={isSubmitting || state.vehicles.length === 0} className="w-full">

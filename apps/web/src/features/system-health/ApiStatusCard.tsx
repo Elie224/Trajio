@@ -53,21 +53,21 @@ export function ApiStatusCard() {
         <div>
           <CardTitle>État de l&apos;API</CardTitle>
           <CardBody>
-            <code className="text-xs text-slate-500">{env.apiBaseUrl + "/health"}</code>
+            <code className="text-xs text-page-muted">{env.apiBaseUrl + "/health"}</code>
           </CardBody>
         </div>
         <Badge tone={toneFor(state)}>{labelFor(state)}</Badge>
       </div>
 
-      <div className="mt-4 border-t border-slate-100 pt-4 text-sm">
+      <div className="mt-4 border-t border-page-border pt-4 text-sm">
         {state.status === "loading" && (
-          <p className="text-slate-500">Contact de l&apos;API…</p>
+          <p className="text-page-muted">Contact de l&apos;API…</p>
         )}
 
         {state.status === "offline" && (
           <div>
-            <p className="text-rose-700">{state.message}</p>
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="text-danger">{state.message}</p>
+            <p className="mt-2 text-xs text-page-muted">
               Démarrez l&apos;API avec le script{" "}
               <code>start-api.ps1</code>, puis rechargez cette page.
             </p>
@@ -77,19 +77,19 @@ export function ApiStatusCard() {
         {state.status === "online" && (
           <dl className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
             <div>
-              <dt className="text-xs text-slate-500">Service</dt>
-              <dd className="font-medium text-slate-800">{state.payload.service}</dd>
+              <dt className="text-xs text-page-muted">Service</dt>
+              <dd className="font-medium text-page-text">{state.payload.service}</dd>
             </div>
             <div>
-              <dt className="text-xs text-slate-500">Version</dt>
-              <dd className="font-medium text-slate-800">{state.payload.version}</dd>
+              <dt className="text-xs text-page-muted">Version</dt>
+              <dd className="font-medium text-page-text">{state.payload.version}</dd>
             </div>
             <div>
-              <dt className="text-xs text-slate-500">Environnement</dt>
-              <dd className="font-medium text-slate-800">{state.payload.environment}</dd>
+              <dt className="text-xs text-page-muted">Environnement</dt>
+              <dd className="font-medium text-page-text">{state.payload.environment}</dd>
             </div>
             <div className="col-span-2 sm:col-span-1">
-              <dt className="text-xs text-slate-500">Contrat</dt>
+              <dt className="text-xs text-page-muted">Contrat</dt>
               <dd className="font-medium text-emerald-700">JSON conforme</dd>
             </div>
           </dl>

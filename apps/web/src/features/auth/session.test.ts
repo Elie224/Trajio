@@ -72,3 +72,18 @@ describe("session", () => {
     expect(fetchCurrentUser).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("onSessionChange", () => {
+  it("previent les abonnes a chaque resetSession, jusqu'au desabonnement", async () => {
+    const { onSessionChange } = await import("./session");
+    const listener = vi.fn();
+    const unsubscribe = onSessionChange(listener);
+    resetSession();
+    expect(listener).toHaveBeenCalledTimes(1);
+    clearUserSessionData();
+    expect(listener).toHaveBeenCalledTimes(2);
+    unsubscribe();
+    resetSession();
+    expect(listener).toHaveBeenCalledTimes(2);
+  });
+});

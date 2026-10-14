@@ -64,7 +64,7 @@ function ExportSection() {
   return (
     <Card>
       <section id="mes-donnees" aria-labelledby="mes-donnees-title">
-        <h2 id="mes-donnees-title" className="text-base font-semibold text-slate-900">
+        <h2 id="mes-donnees-title" className="text-base font-semibold text-page-text">
           Mes données
         </h2>
         <CardBody>
@@ -84,12 +84,12 @@ function ExportSection() {
           </p>
         </div>
         {state.status === "error" && (
-          <div role="alert" className="mt-3 flex flex-wrap items-center gap-3 text-sm text-rose-700">
+          <div role="alert" className="mt-3 flex flex-wrap items-center gap-3 text-sm text-danger">
             <span>{state.message}</span>
             <button
               type="button"
               onClick={runExport}
-              className="font-medium underline hover:text-rose-800"
+              className="font-medium underline hover:text-red-800"
             >
               Réessayer
             </button>
@@ -227,14 +227,14 @@ function DeleteAccountDialog({ open, onClose }: { open: boolean; onClose: () => 
         event.preventDefault();
         close();
       }}
-      className="m-auto w-[min(32rem,calc(100%-2rem))] rounded-2xl bg-white p-6 shadow-xl ring-1 ring-slate-200 backdrop:fixed backdrop:inset-0 backdrop:bg-slate-900/50"
+      className="m-auto w-[min(32rem,calc(100%-2rem))] rounded-2xl bg-white p-6 shadow-xl ring-1 ring-page-border backdrop:fixed backdrop:inset-0 backdrop:bg-slate-900/50"
     >
       {step === 1 ? (
         <div>
-          <h2 id={titleId} className="text-lg font-semibold text-slate-900">
+          <h2 id={titleId} className="text-lg font-semibold text-page-text">
             Supprimer votre compte ?
           </h2>
-          <div className="mt-3 space-y-3 text-sm leading-6 text-slate-600">
+          <div className="mt-3 space-y-3 text-sm leading-6 text-page-muted">
             <p>Cette action est définitive :</p>
             <ul className="list-disc space-y-1 pl-5">
               <li>vos informations personnelles seront anonymisées ;</li>
@@ -242,7 +242,7 @@ function DeleteAccountDialog({ open, onClose }: { open: boolean; onClose: () => 
               <li>vos trajets et réservations à venir seront annulés.</li>
             </ul>
             {preview && (
-              <p className="font-medium text-slate-800">
+              <p className="font-medium text-page-text">
                 Concerné : {countLabel(preview.trips, "trajet à venir", "trajets à venir", false)} et{" "}
                 {countLabel(preview.bookings, "réservation à venir", "réservations à venir", true)}.
               </p>
@@ -268,7 +268,7 @@ function DeleteAccountDialog({ open, onClose }: { open: boolean; onClose: () => 
               type="button"
               variant="secondary"
               onClick={() => setStep(2)}
-              className="!text-rose-700 !ring-rose-300 hover:!bg-rose-50"
+              className="!text-danger !ring-rose-300 hover:!bg-rose-50"
             >
               Continuer
             </Button>
@@ -281,7 +281,7 @@ function DeleteAccountDialog({ open, onClose }: { open: boolean; onClose: () => 
             void submit();
           }}
         >
-          <h2 id={titleId} className="text-lg font-semibold text-slate-900">
+          <h2 id={titleId} className="text-lg font-semibold text-page-text">
             Confirmez avec votre mot de passe
           </h2>
           <label htmlFor="delete-account-password" className="label mt-4 block">
@@ -305,7 +305,7 @@ function DeleteAccountDialog({ open, onClose }: { open: boolean; onClose: () => 
             </p>
           )}
           {error?.kind === "general" && (
-            <p role="alert" className="mt-3 text-sm text-rose-700">
+            <p role="alert" className="mt-3 text-sm text-danger">
               {error.message}
             </p>
           )}
@@ -317,7 +317,8 @@ function DeleteAccountDialog({ open, onClose }: { open: boolean; onClose: () => 
               type="submit"
               disabled={password === "" || submitting}
               aria-busy={submitting}
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-[var(--radius-control)] bg-danger px-5 text-base font-medium text-white transition-colors hover:bg-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger disabled:cursor-not-allowed disabled:opacity-60"
+              aria-disabled={password === "" || submitting || undefined}
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-[var(--radius-control)] bg-danger px-5 text-base font-medium text-white transition-colors hover:bg-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger disabled:cursor-not-allowed disabled:bg-red-100 disabled:text-red-800"
             >
               {submitting && <Spinner />}
               Supprimer définitivement
@@ -344,7 +345,7 @@ function DangerZone() {
         ref={triggerRef}
         type="button"
         onClick={() => setOpen(true)}
-        className="mt-4 inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium text-rose-700 ring-1 ring-rose-300 transition-colors hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600"
+        className="mt-4 inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-medium text-danger ring-1 ring-rose-300 transition-colors hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600"
       >
         Supprimer mon compte
       </button>

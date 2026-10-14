@@ -1,50 +1,34 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
+import { buttonClasses } from "@/components/ui/Button";
 import { usePathname } from "next/navigation";
 
-import { clearUserSessionData, getSession } from "@/features/auth/session";
-import { logout, type UserProfile } from "@/lib/api";
+import { clearUserSessionData } from "@/features/auth/session";
+import { useSession } from "@/features/auth/useSession";
+import { logout } from "@/lib/api";
 import { loginHref } from "@/lib/safe-redirect";
 
-type AuthState =
-  | { status: "loading" }
-  | { status: "anonymous" }
-  | { status: "authenticated"; user: UserProfile }
-  | { status: "error"; message: string };
-
 export function AuthActions() {
-  const [state, setState] = useState<AuthState>({ status: "loading" });
+  const state = useSession();
   const pathname = usePathname();
 
-  useEffect(() => {
-    getSession()
-      .then((user) => setState(user ? { status: "authenticated", user } : { status: "anonymous" }))
-      .catch((error: unknown) => {
-        setState({
-          status: "error",
-          message: error instanceof Error ? error.message : "Erreur inattendue",
-        });
-      });
-  }, []);
-
   if (state.status === "loading") {
-    return <p className="hidden text-xs text-slate-500 sm:block">Session…</p>;
+    return <p className="hidden text-xs text-page-muted md:block">Session…</p>;
   }
 
   if (state.status === "anonymous") {
     return (
-      <div className="hidden items-center gap-2 sm:flex">
+      <div className="hidden items-center gap-2 md:flex">
         <Link
           href={loginHref(pathname)}
-          className="rounded-xl border border-slate-200 px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+          className={buttonClasses("secondary", "!min-h-11 !w-auto px-4 text-sm")}
         >
           Connexion
         </Link>
         <Link
           href="/signup"
-          className="rounded-xl bg-brand-600 px-3.5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700"
+          className={buttonClasses("primary", "!min-h-11 !w-auto px-4 text-sm")}
         >
           Inscription
         </Link>
@@ -53,16 +37,16 @@ export function AuthActions() {
   }
 
   if (state.status === "error") {
-    return <p className="hidden text-xs text-rose-600 sm:block">Session indisponible : {state.message}</p>;
+    return <p className="hidden text-xs text-danger md:block">Session indisponible : {state.message}</p>;
   }
 
   return (
-    <div className="hidden items-center gap-3 sm:flex">
-      <Link href="/account" className="text-sm text-slate-700 hover:text-slate-900" title="Mon compte">
+    <div className="hidden items-center gap-3 md:flex">
+      <Link href="/account" className="hidden whitespace-nowrap text-sm text-page-text hover:text-primary-strong xl:inline" title="Mon compte">
         Bonjour <span className="font-semibold">{state.user.first_name}</span>
       </Link>
       <button
-        className="rounded-xl border border-slate-200 px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+        className={buttonClasses("secondary", "!min-h-11 !w-auto px-4 text-sm")}
         onClick={async () => {
           try {
             await logout();

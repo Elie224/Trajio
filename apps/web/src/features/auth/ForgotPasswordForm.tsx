@@ -32,7 +32,7 @@ export function ForgotPasswordForm() {
             <CardTitle>Mot de passe oublié</CardTitle>
           </div>
           {sent ? (
-            <p role="status" className="text-sm leading-6 text-slate-700">
+            <p role="status" className="text-sm leading-6 text-page-text">
               {GENERIC_SENT}
             </p>
           ) : (
@@ -87,7 +87,7 @@ export function ForgotPasswordForm() {
                 />
               </div>
               {error && (
-                <p role="alert" className="text-sm text-rose-700">
+                <p role="alert" className="text-sm text-danger">
                   {error}
                 </p>
               )}

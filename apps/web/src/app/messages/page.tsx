@@ -11,8 +11,8 @@ export default function MessagesPage() {
       <Container>
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-slate-900 sm:text-3xl">Messages</h1>
-            <p className="mt-2 text-sm text-slate-600">
+            <h1 className="text-2xl font-semibold text-page-text sm:text-3xl">Messages</h1>
+            <p className="mt-2 text-sm text-page-muted">
               Interface de messagerie préparée pour une communication sécurisée en temps réel.
             </p>
           </div>
@@ -20,15 +20,15 @@ export default function MessagesPage() {
         </div>
 
         <div className="surface grid overflow-hidden lg:grid-cols-[320px_1fr]">
-          <aside className="border-b border-slate-100 p-4 lg:border-r lg:border-b-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Conversations</p>
-            <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+          <aside className="border-b border-page-border p-4 lg:border-r lg:border-b-0">
+            <p className="text-xs font-semibold text-page-muted">Conversations</p>
+            <div className="mt-4 rounded-xl border border-dashed border-page-border bg-brand-50 p-4 text-sm text-page-muted">
               Les conversations liées aux réservations apparaîtront ici.
             </div>
           </aside>
 
           <div className="p-6">
-            <div className="mb-5 flex items-center gap-2 text-slate-800">
+            <div className="mb-5 flex items-center gap-2 text-page-text">
               <MessageSquareMore className="h-4 w-4" />
               <h2 className="font-semibold">Sélectionnez une conversation</h2>
             </div>

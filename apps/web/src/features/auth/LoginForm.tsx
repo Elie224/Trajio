@@ -136,7 +136,7 @@ export function LoginForm() {
               />
             </div>
             {error && (
-              <p role="alert" className="text-sm text-rose-700">
+              <p role="alert" className="text-sm text-danger">
                 {error}
               </p>
             )}

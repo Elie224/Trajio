@@ -116,7 +116,7 @@ export function SignupForm() {
                 autoComplete="new-password"
               />
             </div>
-            {error && <p className="md:col-span-2 text-sm text-rose-700">{error}</p>}
+            {error && <p className="md:col-span-2 text-sm text-danger">{error}</p>}
             {success && <p className="md:col-span-2 text-sm text-emerald-700">{success}</p>}
             <div className="md:col-span-2">
               <Button type="submit" disabled={isSubmitting} className="w-full">

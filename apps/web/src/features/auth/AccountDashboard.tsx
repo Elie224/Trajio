@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
+import { Button, buttonClasses } from "@/components/ui/Button";
 import { Card, CardBody, CardTitle } from "@/components/ui/Card";
 import { Container } from "@/components/ui/Container";
 import { loginHref } from "@/lib/safe-redirect";
@@ -98,13 +98,13 @@ export function AccountDashboard() {
             <div className="mt-4 flex gap-2">
               <Link
                 href={loginHref(pathname)}
-                className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+                className={buttonClasses("primary")}
               >
                 Se connecter
               </Link>
               <Link
                 href="/signup"
-                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className={buttonClasses("secondary")}
               >
                 Créer un compte
               </Link>
@@ -140,22 +140,22 @@ export function AccountDashboard() {
           </div>
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
             <div>
-              <dt className="text-slate-500">Nom</dt>
-              <dd className="font-medium text-slate-900">
+              <dt className="text-page-muted">Nom</dt>
+              <dd className="font-medium text-page-text">
                 {state.user.first_name} {state.user.last_name}
               </dd>
             </div>
             <div>
-              <dt className="text-slate-500">Email</dt>
-              <dd className="font-medium text-slate-900">{state.user.email}</dd>
+              <dt className="text-page-muted">Email</dt>
+              <dd className="font-medium text-page-text">{state.user.email}</dd>
             </div>
             <div>
-              <dt className="text-slate-500">Rôle</dt>
-              <dd className="font-medium text-slate-900">{state.user.role}</dd>
+              <dt className="text-page-muted">Rôle</dt>
+              <dd className="font-medium text-page-text">{state.user.role}</dd>
             </div>
             <div>
-              <dt className="text-slate-500">Statut</dt>
-              <dd className="font-medium text-slate-900">{state.user.status}</dd>
+              <dt className="text-page-muted">Statut</dt>
+              <dd className="font-medium text-page-text">{state.user.status}</dd>
             </div>
           </dl>
         </Card>
@@ -201,7 +201,7 @@ export function AccountDashboard() {
               defaultValue={4}
               required
             />
-            <label className="flex items-center gap-2 text-sm text-slate-700">
+            <label className="flex items-center gap-2 text-sm text-page-text">
               <input type="checkbox" name="is_primary" />
               Véhicule principal
             </label>
@@ -210,7 +210,7 @@ export function AccountDashboard() {
                 {isSubmittingVehicle ? "Enregistrement..." : "Ajouter le véhicule"}
               </Button>
             </div>
-            {message && <p className="sm:col-span-2 text-sm text-slate-600">{message}</p>}
+            {message && <p className="sm:col-span-2 text-sm text-page-muted">{message}</p>}
           </form>
         </Card>
 
@@ -221,13 +221,13 @@ export function AccountDashboard() {
           ) : (
             <ul className="mt-4 grid gap-3 sm:grid-cols-2">
               {state.vehicles.map((vehicle) => (
-                <li key={vehicle.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <li key={vehicle.id} className="rounded-xl border border-page-border bg-brand-50 p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="font-semibold text-slate-900">
+                      <p className="font-semibold text-page-text">
                         {vehicle.brand} {vehicle.model}
                       </p>
-                      <p className="text-sm text-slate-600">
+                      <p className="text-sm text-page-muted">
                         {vehicle.plate} · {vehicle.seats_total} places
                       </p>
                     </div>
@@ -240,7 +240,7 @@ export function AccountDashboard() {
                         await deactivateVehicle(vehicle.id);
                         setState(await loadData());
                       }}
-                      className="text-sm font-medium text-rose-700 hover:text-rose-800"
+                      className="text-sm font-medium text-danger hover:text-red-800"
                     >
                       Désactiver
                     </button>
@@ -258,17 +258,17 @@ export function AccountDashboard() {
           ) : (
             <ul className="mt-4 space-y-3">
               {state.trips.map((trip) => (
-                <li key={trip.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <li key={trip.id} className="rounded-xl border border-page-border bg-brand-50 p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="font-semibold text-slate-900">
+                      <p className="font-semibold text-page-text">
                         {trip.origin_label} → {trip.destination_label}
                       </p>
-                      <p className="text-sm text-slate-600">
+                      <p className="text-sm text-page-muted">
                         {new Date(trip.departure_time).toLocaleString("fr-FR")} · {trip.seats_available}/
                         {trip.seats_total} places
                       </p>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-page-muted">
                         {trip.is_paid ? `${((trip.price_per_seat_cents ?? 0) / 100).toFixed(2)} €` : "Gratuit"}
                       </p>
                     </div>
@@ -278,7 +278,7 @@ export function AccountDashboard() {
                     <div className="mt-3">
                       <button
                         type="button"
-                        className="text-sm font-medium text-rose-700 hover:text-rose-800"
+                        className="text-sm font-medium text-danger hover:text-red-800"
                         onClick={async () => {
                           await cancelTrip(trip.id);
                           setState(await loadData());
@@ -301,17 +301,17 @@ export function AccountDashboard() {
           ) : (
             <ul className="mt-4 space-y-3">
               {state.bookings.map((booking) => (
-                <li key={booking.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <li key={booking.id} className="rounded-xl border border-page-border bg-brand-50 p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="font-semibold text-slate-900">
+                      <p className="font-semibold text-page-text">
                         {booking.trip_origin_label} → {booking.trip_destination_label}
                       </p>
-                      <p className="text-sm text-slate-600">
+                      <p className="text-sm text-page-muted">
                         {new Date(booking.trip_departure_time).toLocaleString("fr-FR")} ·{" "}
                         {booking.requested_seats} place(s)
                       </p>
-                      <p className="text-xs text-slate-500">Conducteur: {booking.driver_name}</p>
+                      <p className="text-xs text-page-muted">Conducteur: {booking.driver_name}</p>
                     </div>
                     <Badge tone={booking.status === "accepted" ? "success" : "warning"}>
                       {booking.status}
@@ -321,7 +321,7 @@ export function AccountDashboard() {
                     <div className="mt-3">
                       <button
                         type="button"
-                        className="text-sm font-medium text-rose-700 hover:text-rose-800"
+                        className="text-sm font-medium text-danger hover:text-red-800"
                         onClick={async () => {
                           await cancelBooking(booking.id);
                           setState(await loadData());
@@ -344,16 +344,16 @@ export function AccountDashboard() {
           ) : (
             <ul className="mt-4 space-y-3">
               {state.incomingBookings.map((booking) => (
-                <li key={booking.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <li key={booking.id} className="rounded-xl border border-page-border bg-brand-50 p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="font-semibold text-slate-900">
+                      <p className="font-semibold text-page-text">
                         {booking.trip_origin_label} → {booking.trip_destination_label}
                       </p>
-                      <p className="text-sm text-slate-600">
+                      <p className="text-sm text-page-muted">
                         {booking.passenger_name} · {booking.requested_seats} place(s)
                       </p>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-page-muted">
                         Départ: {new Date(booking.trip_departure_time).toLocaleString("fr-FR")}
                       </p>
                     </div>
@@ -375,7 +375,7 @@ export function AccountDashboard() {
                       </button>
                       <button
                         type="button"
-                        className="text-sm font-medium text-rose-700 hover:text-rose-800"
+                        className="text-sm font-medium text-danger hover:text-red-800"
                         onClick={async () => {
                           await declineBooking(booking.id);
                           setState(await loadData());

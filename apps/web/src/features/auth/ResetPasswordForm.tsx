@@ -84,7 +84,7 @@ export function ResetPasswordForm() {
           <div className="mb-3">
             <CardTitle>Nouveau mot de passe</CardTitle>
           </div>
-          <ul id="reset-password-rules" className="mb-4 list-disc pl-5 text-sm text-slate-600">
+          <ul id="reset-password-rules" className="mb-4 list-disc pl-5 text-sm text-page-muted">
             <li>au moins {MIN_LENGTH} caractères ;</li>
             <li>pas de mot de passe courant (ex. « motdepasse123 »).</li>
           </ul>
@@ -145,7 +145,7 @@ export function ResetPasswordForm() {
                 aria-invalid={tooShort || undefined}
               />
               {tooShort && (
-                <p id="reset-too-short" className="mt-1 text-sm text-rose-700">
+                <p id="reset-too-short" className="mt-1 text-sm text-danger">
                   {MIN_LENGTH} caractères minimum.
                 </p>
               )}
@@ -167,12 +167,12 @@ export function ResetPasswordForm() {
                 aria-invalid={mismatch || undefined}
               />
               {mismatch && (
-                <p id="reset-mismatch" className="mt-1 text-sm text-rose-700">
+                <p id="reset-mismatch" className="mt-1 text-sm text-danger">
                   Les deux mots de passe ne correspondent pas.
                 </p>
               )}
             </div>
-            <label className="flex items-center gap-2 text-sm text-slate-700">
+            <label className="flex items-center gap-2 text-sm text-page-text">
               <input
                 type="checkbox"
                 checked={showPassword}
@@ -181,7 +181,7 @@ export function ResetPasswordForm() {
               Afficher les mots de passe
             </label>
             {error && (
-              <p role="alert" className="text-sm text-rose-700">
+              <p role="alert" className="text-sm text-danger">
                 {error}
               </p>
             )}
