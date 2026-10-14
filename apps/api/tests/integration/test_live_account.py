@@ -207,3 +207,50 @@ def test_forgot_password_indistinguishable():
     diff_ms = (statistics.median(t_ex) - statistics.median(t_un)) * 1000
     print(f"forgot-password median existing-unknown = {diff_ms:.2f} ms")
     assert abs(diff_ms) < 20
+
+
+def test_same_second_reset_revokes_old_session_token_version():
+    for _ in range(3):  # repeat: reset happens within the same second as login
+        c, email = register_and_login("tv")
+        old_access = c.cookies.get("trajio_access_token")
+        old_refresh = c.cookies.get("trajio_refresh_token")
+        reset = _forgot(email).json()["reset_token"]
+        new_pw = "Another-Dummy-456!"
+        ok = new_client().post(
+            "/auth/reset-password", json={"token": reset, "new_password": new_pw}
+        )
+        assert ok.status_code == 200, ok.text
+        fresh = new_client()
+        assert fresh.get("/auth/me", cookies={"trajio_access_token": old_access}).status_code == 401
+        assert (
+            fresh.post("/auth/refresh", cookies={"trajio_refresh_token": old_refresh}).status_code
+            == 401
+        )
+        relog = new_client()
+        r = relog.post(
+            "/auth/login",
+            json={"email": email, "password": new_pw},
+            headers={"X-Forwarded-For": next_ip()},
+        )
+        assert r.status_code == 200, r.text
+        assert relog.get("/auth/me").status_code == 200
+
+
+def test_same_second_delete_revokes_old_session():
+    for _ in range(3):
+        c, email = register_and_login("tvd")
+        old_access = c.cookies.get("trajio_access_token")
+        old_refresh = c.cookies.get("trajio_refresh_token")
+        assert c.request("DELETE", "/auth/me", json={"password": PASSWORD}).status_code == 200
+        fresh = new_client()
+        assert fresh.get("/auth/me", cookies={"trajio_access_token": old_access}).status_code == 401
+        assert (
+            fresh.post("/auth/refresh", cookies={"trajio_refresh_token": old_refresh}).status_code
+            == 401
+        )
+        r = new_client().post(
+            "/auth/login",
+            json={"email": email, "password": PASSWORD},
+            headers={"X-Forwarded-For": next_ip()},
+        )
+        assert r.status_code == 401

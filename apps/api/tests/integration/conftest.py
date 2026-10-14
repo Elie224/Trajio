@@ -26,7 +26,9 @@ def next_ip() -> str:
 
 
 def new_client() -> httpx.Client:
-    return httpx.Client(base_url=f"{BASE}/api/v1", timeout=30)
+    return httpx.Client(
+        base_url=f"{BASE}/api/v1", timeout=30, headers={"X-Forwarded-For": next_ip()}
+    )
 
 
 def register_and_login(prefix: str = "u") -> tuple[httpx.Client, str]:

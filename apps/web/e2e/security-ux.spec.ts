@@ -1,11 +1,9 @@
-import { expect, type APIRequestContext, type Page, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 
-const API = process.env.API_URL ?? "http://localhost:8100/api/v1";
-const SHOTS = process.env.SHOTS_DIR ?? "/workspace/trajio-shots";
+import { newAccount } from "./helpers";
+
+const SHOTS = process.env.SHOTS_DIR ?? "/workspace/trajio-shots/round2";
 const PASSWORD = "Dummy-Test-Pass-123!";
-let ipSeq = Math.floor(Math.random() * 60000);
-const ip = () => `10.200.${(++ipSeq >> 8) & 255}.${ipSeq & 255}`;
-
 function watchCsp(page: Page): string[] {
   const v: string[] = [];
   page.on("console", (m) => {
@@ -13,34 +11,6 @@ function watchCsp(page: Page): string[] {
   });
   page.on("pageerror", (e) => v.push(`pageerror: ${e.message}`));
   return v;
-}
-
-async function newAccount(req: APIRequestContext, withData = false): Promise<string> {
-  const email = `e2e-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`;
-  const h = { "X-Forwarded-For": ip() };
-  expect(
-    (await req.post(`${API}/auth/register`, {
-      data: { email, password: PASSWORD, first_name: "Test", last_name: "E2E" },
-      headers: h,
-    })).status(),
-  ).toBe(201);
-  expect(
-    (await req.post(`${API}/auth/login`, { data: { email, password: PASSWORD }, headers: { "X-Forwarded-For": ip() } })).status(),
-  ).toBe(200);
-  if (withData) {
-    const v = await (await req.post(`${API}/vehicles`, {
-      data: { brand: "Test", model: "Car", plate: `E2E-${ipSeq}`, seats_total: 4 },
-    })).json();
-    const t = await req.post(`${API}/trips`, {
-      data: {
-        vehicle_id: v.id, origin_label: "Paris Gare de Lyon", destination_label: "Paris Bastille",
-        origin_lat: 48.844, origin_lng: 2.374, destination_lat: 48.853, destination_lng: 2.369,
-        departure_time: new Date(Date.now() + 2 * 86400e3).toISOString(), seats_total: 3,
-      },
-    });
-    expect(t.status()).toBe(201);
-  }
-  return email;
 }
 
 test("CSP header and no CSP violations on /, /trips, /search (OSM tiles on map pages)", async ({ page }) => {
@@ -61,17 +31,17 @@ test("CSP header and no CSP violations on /, /trips, /search (OSM tiles on map p
 });
 
 test("/reset-password strips token and sends Referrer-Policy: no-referrer", async ({ page }) => {
-  const res = await page.goto("/reset-password?token=dummy.e2e.token");
+  const res = await page.goto("/reset-password?token=dummy.e2e.token-aaaaaaaaaaaaaaaaaaaaaaaaaaaa");
   expect(res!.headers()["referrer-policy"]).toBe("no-referrer");
   await page.waitForLoadState("networkidle");
-  expect(page.url()).not.toContain("dummy.e2e.token");
+  expect(page.url()).not.toContain("dummy.e2e.token-aaaaaaaaaaaaaaaaaaaaaaaaaaaa");
   expect(page.url()).not.toContain("token=");
   await page.goto("/forgot-password");
   for (const w of [1280, 375]) {
     await page.setViewportSize({ width: w, height: 900 });
     await page.goto("/forgot-password");
     await page.screenshot({ path: `${SHOTS}/forgot-password-${w}.png`, fullPage: true });
-    await page.goto("/reset-password?token=dummy.e2e.token");
+    await page.goto("/reset-password?token=dummy.e2e.token-aaaaaaaaaaaaaaaaaaaaaaaaaaaa");
     await page.waitForLoadState("networkidle");
     await page.screenshot({ path: `${SHOTS}/reset-password-${w}.png`, fullPage: true });
   }
@@ -101,8 +71,8 @@ test("account deletion dialog: a11y, 403, success, back/reload", async ({ page }
     }
     await page.getByRole("button", { name: "Supprimer mon compte" }).click();
     const dialog = page.locator("dialog[open]");
-    await expect.soft(dialog.getByRole("button", { name: "Annuler" }), "focus on Annuler at open").toBeFocused();
-    await expect(dialog.getByText(/1 trajet\(s\) à venir/)).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Annuler" }), "focus on Annuler at open").toBeFocused();
+    await expect(dialog.getByText(/1 trajet à venir/)).toBeVisible();
     await page.screenshot({ path: `${SHOTS}/account-step1-counts-${w}.png`, fullPage: true });
     if (w === 1280) {
       for (let i = 0; i < 6; i++) {
