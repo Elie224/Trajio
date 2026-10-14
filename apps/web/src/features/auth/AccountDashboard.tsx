@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardTitle } from "@/components/ui/Card";
 import { Container } from "@/components/ui/Container";
+import { AccountDataSettings } from "@/features/auth/AccountDataSettings";
 import {
   acceptBooking,
   cancelBooking,
@@ -389,6 +390,8 @@ export function AccountDashboard() {
             </ul>
           )}
         </Card>
+
+        <AccountDataSettings />
       </Container>
     </section>
   );

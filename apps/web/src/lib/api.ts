@@ -46,6 +46,9 @@ async function fetchJson<T>(path: string, init: RequestInit = {}): Promise<T> {
     throw new ApiError(message, response.status);
   }
 
+  if (response.status === 204) {
+    return undefined as T;
+  }
   return (await response.json()) as T;
 }
 
@@ -118,8 +121,18 @@ export async function exportMyData(): Promise<Record<string, unknown>> {
   return fetchJson<Record<string, unknown>>("/api/v1/auth/me/export");
 }
 
-export async function deleteAccount(): Promise<{ message: string }> {
-  return fetchJson<{ message: string }>("/api/v1/auth/me", { method: "DELETE" });
+/** Re-authenticated deletion: the password is sent in the body, never stored. */
+export async function deleteAccount(password: string): Promise<{ message: string } | undefined> {
+  return fetchJson<{ message: string } | undefined>("/api/v1/auth/me", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password }),
+  });
+}
+
+/** Counts of what a deletion would cancel. The endpoint may not exist yet. */
+export async function fetchDeletionPreview(): Promise<unknown> {
+  return fetchJson<unknown>("/api/v1/auth/me/deletion-preview");
 }
 
 export async function fetchCurrentUser(): Promise<UserProfile> {

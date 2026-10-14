@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardTitle } from "@/components/ui/Card";
 import { ApiStatusCard } from "@/features/system-health/ApiStatusCard";
 import { TrajioMap } from "@/features/map/TrajioMap";
+import { AccountDeletedNotice } from "@/features/auth/AccountDeletedNotice";
 
 const HOW_IT_WORKS = [
   {
@@ -41,6 +42,7 @@ const BENEFITS = [
 export default function Home() {
   return (
     <>
+      <AccountDeletedNotice />
       <section className="border-b border-slate-200 bg-white">
         <Container className="grid gap-8 py-10 lg:grid-cols-[1.05fr_1fr] lg:py-14">
           <div>
