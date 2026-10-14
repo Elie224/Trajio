@@ -46,7 +46,7 @@ export function SiteHeader() {
           </span>
           <span className="flex flex-col leading-tight">
             <span className="font-heading text-base font-semibold text-page-text">{env.appName}</span>
-            <span className="text-sm text-primary-strong">Covoiturage de proximité</span>
+            <span className="text-sm text-page-muted">Covoiturage de proximité</span>
           </span>
         </Link>
 

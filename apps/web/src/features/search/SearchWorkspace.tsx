@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowUpDown, CalendarDays, Car, Search, SlidersHorizontal, Star, Users } from "lucide-react";
+import { ArrowUpDown, CalendarDays, ChevronUp, Car, Search, SlidersHorizontal, Star, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
 import { TrajioMap } from "@/features/map/TrajioMap";
@@ -48,6 +48,32 @@ export function SearchWorkspace() {
   const [pickup, setPickup] = useState("");
   const [dropoff, setDropoff] = useState("");
   const [recent, setRecent] = useState<RecentSearch[]>([]);
+  const [sheetExpanded, setSheetExpanded] = useState(false);
+  const dateRef = useRef<HTMLInputElement>(null);
+  // Native date inputs follow the browser language (mm/dd/yyyy in an English
+  // browser), so the chosen date is also spelled out in French below the field.
+  const [dateLabel, setDateLabel] = useState("");
+  const updateDateLabel = (value: string) => {
+    const [y, m, d] = value.split("-").map(Number);
+    setDateLabel(
+      y && m && d
+        ? new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(
+            new Date(y, m - 1, d),
+          )
+        : "",
+    );
+  };
+
+  // Default date = today (local), set after mount: the page is prerendered.
+  useEffect(() => {
+    const input = dateRef.current;
+    if (!input || input.value) return;
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    input.value = today;
+    input.min = today;
+    updateDateLabel(today);
+  }, []);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is browser-only
@@ -99,9 +125,14 @@ export function SearchWorkspace() {
   );
 
   return (
-    <section className="relative lg:h-[calc(100dvh-4rem)] lg:min-h-[640px]">
-      {/* Full-screen map (behind the panel on desktop, on top on mobile). */}
-      <div className="h-[45vh] min-h-[280px] lg:absolute lg:inset-0 lg:h-full">
+    <section
+      className={
+        "relative h-[calc(100dvh-8rem-env(safe-area-inset-bottom))] min-h-[480px] overflow-hidden " +
+        "md:h-[calc(100dvh-4rem)] lg:min-h-[560px]"
+      }
+    >
+      {/* Map fills the whole area under the header (and above the mobile tab bar). */}
+      <div className="absolute inset-0">
         <TrajioMap
           className="!min-h-0 !rounded-none !border-0"
           pickup={pickupPoint}
@@ -112,13 +143,30 @@ export function SearchWorkspace() {
 
       {/* Bottom sheet on mobile, floating panel on desktop. */}
       <div
+        id="search-sheet"
         className={
-          "relative z-10 -mt-6 rounded-t-[var(--radius-sheet)] bg-page-surface px-4 pb-8 pt-3 shadow-card " +
-          "lg:absolute lg:bottom-6 lg:left-6 lg:top-6 lg:mt-0 lg:w-[440px] lg:overflow-y-auto " +
-          "lg:rounded-[var(--radius-card)] lg:border lg:border-page-border lg:p-6"
+          "absolute inset-x-0 bottom-0 z-10 flex flex-col rounded-t-[var(--radius-sheet)] bg-page-surface shadow-card " +
+          "transition-[height] duration-300 motion-reduce:transition-none " +
+          (sheetExpanded ? "h-[calc(100%-2rem)] " : "h-1/2 ") +
+          "lg:bottom-auto lg:left-6 lg:right-auto lg:top-6 lg:h-auto lg:max-h-[calc(100%-3rem)] lg:w-[440px] " +
+          "lg:rounded-[var(--radius-card)] lg:border lg:border-page-border"
         }
       >
-        <div aria-hidden="true" className="mx-auto mb-4 h-1 w-10 rounded-full bg-page-border lg:hidden" />
+        <button
+          type="button"
+          onClick={() => setSheetExpanded((value) => !value)}
+          aria-expanded={sheetExpanded}
+          aria-controls="search-sheet-content"
+          className="flex min-h-11 w-full shrink-0 flex-col items-center justify-center gap-1 rounded-t-[var(--radius-sheet)] lg:hidden"
+        >
+          <span aria-hidden="true" className="h-1 w-10 rounded-full bg-page-muted" />
+          <span className="sr-only">{sheetExpanded ? "Réduire le panneau de recherche" : "Agrandir le panneau de recherche"}</span>
+          <ChevronUp
+            aria-hidden="true"
+            className={"h-4 w-4 text-page-muted transition-transform " + (sheetExpanded ? "rotate-180" : "")}
+          />
+        </button>
+        <div id="search-sheet-content" className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 lg:p-6">
 
         <h1 className="sr-only">Rechercher un trajet</h1>
 
@@ -231,7 +279,19 @@ export function SearchWorkspace() {
               <label htmlFor="search-date" className="label">
                 <CalendarDays className="mr-1 h-4 w-4" aria-hidden="true" /> Date
               </label>
-              <input id="search-date" name="date" type="date" className="field" />
+              <input
+                ref={dateRef}
+                id="search-date"
+                name="date"
+                type="date"
+                lang="fr"
+                className="field"
+                aria-describedby="search-date-label"
+                onChange={(event) => updateDateLabel(event.target.value)}
+              />
+              <p id="search-date-label" className="mt-1 text-sm text-page-muted" aria-live="polite">
+                {dateLabel}
+              </p>
             </div>
             <div>
               <label htmlFor="search-seat" className="label">
@@ -469,6 +529,7 @@ export function SearchWorkspace() {
               );
             })}
           </ul>
+        </div>
         </div>
       </div>
     </section>

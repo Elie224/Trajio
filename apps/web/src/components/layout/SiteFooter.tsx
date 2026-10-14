@@ -1,6 +1,12 @@
+"use client";
+
+import { usePathname } from "next/navigation";
+
 import { Container } from "@/components/ui/Container";
 
 export function SiteFooter() {
+  // /search is a full-screen map: no footer under it.
+  if (usePathname() === "/search") return null;
   return (
     <footer className="mt-auto border-t border-page-border bg-white">
       <Container className="py-10">

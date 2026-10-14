@@ -50,7 +50,13 @@ export function AddressCombobox({
   };
 
   return (
-    <div className="relative">
+    <div
+      className="relative"
+      onBlur={(event) => {
+        // Close when focus leaves the whole combobox (input + list + clear button).
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOpen(false);
+      }}
+    >
       <label htmlFor={id} className="label">
         {label}
       </label>
@@ -72,7 +78,6 @@ export function AddressCombobox({
           setActiveIndex(-1);
         }}
         onFocus={() => setOpen(true)}
-        onBlur={() => setOpen(false)}
         onKeyDown={(event) => {
           if (event.key === "ArrowDown") {
             event.preventDefault();
@@ -92,7 +97,7 @@ export function AddressCombobox({
       />
       <div
         className={
-          "absolute inset-x-0 top-full z-20 mt-1 overflow-hidden rounded-[var(--radius-control)] border border-page-border bg-white shadow-card " +
+          "absolute inset-x-0 top-full z-50 mt-1 max-h-72 overflow-y-auto rounded-[var(--radius-control)] border border-page-border bg-white shadow-card " +
           (expanded ? "" : "hidden")
         }
       >
@@ -131,8 +136,8 @@ export function AddressCombobox({
         </ul>
         <button
           type="button"
-          onMouseDown={(event) => {
-            event.preventDefault();
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => {
             onClearRecent();
             setOpen(false);
           }}
