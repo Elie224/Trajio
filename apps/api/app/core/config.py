@@ -43,7 +43,9 @@ class Settings(BaseSettings):
 
     # -- Application ------------------------------------------------------
     PROJECT_NAME: str = "Trajio API"
-    APP_ENV: str = "development"
+    # Secure by default: development mode (dev tokens in responses, weak keys)
+    # must be asked for explicitly with APP_ENV=development.
+    APP_ENV: str = "production"
     DEBUG: bool = False
     API_V1_PREFIX: str = "/api/v1"
 

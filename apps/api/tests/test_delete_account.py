@@ -139,3 +139,23 @@ async def test_ip_limit_retry_after_is_time_left(client, fake_session, monkeypat
     response = await client.request("DELETE", URL, json={"password": "x"})
     assert response.status_code == 429
     assert 42 <= int(response.headers["Retry-After"]) <= 43
+
+
+@pytest.mark.parametrize("env", ["production", "staging"])
+async def test_forgot_password_never_returns_token_outside_dev(
+    client, fake_session, monkeypatch, env
+) -> None:
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "APP_ENV", env)
+    fake_session.counts = [SimpleNamespace(id=uuid4(), password_hash="hash")]
+    response = await client.post("/api/v1/auth/forgot-password", json={"email": "a@example.com"})
+    assert response.status_code == 200
+    assert response.json().get("reset_token") is None
+
+
+def test_app_env_defaults_to_production(monkeypatch) -> None:
+    from app.core.config import Settings
+
+    monkeypatch.delenv("APP_ENV", raising=False)
+    assert Settings.model_fields["APP_ENV"].default == "production"
