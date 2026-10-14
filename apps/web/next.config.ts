@@ -1,15 +1,12 @@
 import type { NextConfig } from "next";
 
+import { resolveApiBaseUrl } from "./src/lib/env";
+
 const isDev = process.env.NODE_ENV !== "production";
 
-/** Origin of the FastAPI backend, called from the browser. */
+/** Origin of the FastAPI backend (validated in src/lib/env.ts, throws in production if invalid). */
 function apiOrigin(): string {
-  const raw = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
-  try {
-    return new URL(raw).origin;
-  } catch {
-    return "http://localhost:8000";
-  }
+  return new URL(resolveApiBaseUrl()).origin;
 }
 
 /** Raster tiles used by OSM_RASTER_STYLE (src/lib/map/style.ts). */
