@@ -88,3 +88,16 @@ async def test_deletion_preview_returns_counts(client, fake_session) -> None:
     response = await client.get(f"{URL}/deletion-preview")
     assert response.status_code == 200
     assert response.json() == {"trips": 2, "bookings": 3}
+
+
+async def test_deletion_preview_limit_ignores_spoofed_forwarded_for(client, fake_session) -> None:
+    fake_session.counts = [0, 0] * 5
+    codes = [
+        (
+            await client.get(
+                f"{URL}/deletion-preview", headers={"X-Forwarded-For": f"203.0.113.{i}"}
+            )
+        ).status_code
+        for i in range(6)
+    ]
+    assert codes == [200] * 5 + [429]

@@ -334,6 +334,7 @@ async def export_my_data(
     user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     """RGPD right of access and portability: every record tied to the account."""
+    account_limiter.hit("export", str(user.id), limit=5, window_seconds=3600)
     vehicles = (await session.scalars(select(Vehicle).where(Vehicle.owner_id == user.id))).all()
     trips = (await session.scalars(select(Trip).where(Trip.driver_id == user.id))).all()
     bookings = (await session.scalars(select(Booking).where(Booking.passenger_id == user.id))).all()
@@ -356,6 +357,7 @@ async def deletion_preview(
     user: User = Depends(get_current_user),
 ) -> DeletionPreview:
     """How many upcoming trips and active bookings DELETE /me would cancel."""
+    account_limiter.hit("deletion-preview", str(user.id), limit=5, window_seconds=3600)
     trips = await session.scalar(
         select(func.count())
         .select_from(Trip)
