@@ -7,7 +7,15 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
+from app.core.security import password_policy_error
 from app.models import UserRole, UserStatus
+
+
+def _check_password_policy(value: str) -> str:
+    error = password_policy_error(value)
+    if error:
+        raise ValueError(error)
+    return value
 
 
 class UserPublic(BaseModel):
@@ -29,7 +37,7 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     first_name: str = Field(min_length=1, max_length=80)
     last_name: str = Field(min_length=1, max_length=80)
-    password: str = Field(min_length=8, max_length=256)
+    password: str = Field(min_length=12, max_length=256)
 
     @field_validator("first_name", "last_name")
     @classmethod
@@ -39,16 +47,23 @@ class RegisterRequest(BaseModel):
             raise ValueError("Champ obligatoire.")
         return stripped
 
+    @field_validator("password")
+    @classmethod
+    def _password_policy(cls, value: str) -> str:
+        return _check_password_policy(value)
+
 
 class RegisterResponse(BaseModel):
-    user: UserPublic
+    """Identical whether or not the email already exists (anti-enumeration)."""
+
+    message: str
     verification_required: bool
-    verification_token: str | None = None
 
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=8, max_length=256)
+    # No length policy here: accounts created under an older policy must still log in.
+    password: str = Field(min_length=1, max_length=256)
 
 
 class VerifyEmailRequest(BaseModel):
@@ -61,7 +76,12 @@ class ForgotPasswordRequest(BaseModel):
 
 class ResetPasswordRequest(BaseModel):
     token: str = Field(min_length=20, max_length=4096)
-    new_password: str = Field(min_length=8, max_length=256)
+    new_password: str = Field(min_length=12, max_length=256)
+
+    @field_validator("new_password")
+    @classmethod
+    def _password_policy(cls, value: str) -> str:
+        return _check_password_policy(value)
 
 
 class AuthMessage(BaseModel):
@@ -76,7 +96,7 @@ class ForgotPasswordResponse(BaseModel):
 class UpdateProfileRequest(BaseModel):
     first_name: str | None = Field(default=None, min_length=1, max_length=80)
     last_name: str | None = Field(default=None, min_length=1, max_length=80)
-    phone: str | None = Field(default=None, max_length=32)
+    phone: str | None = Field(default=None, max_length=32, pattern=r"^[0-9+ ().-]*$")
 
     @field_validator("first_name", "last_name")
     @classmethod

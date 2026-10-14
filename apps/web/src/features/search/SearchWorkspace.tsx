@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardTitle } from "@/components/ui/Card";
 import { TrajioMap } from "@/features/map/TrajioMap";
-import { createBooking, searchTrips, type SearchTrip } from "@/lib/api";
+import { ApiError, createBooking, searchTrips, type SearchTrip } from "@/lib/api";
 
 type SearchState =
   | { status: "idle"; items: SearchTrip[] }
@@ -79,8 +79,10 @@ export function SearchWorkspace() {
                   status: "error",
                   items: [],
                   message:
-                    unknownError instanceof Error
-                      ? unknownError.message
+                    unknownError instanceof ApiError && unknownError.status === 401
+                      ? "Connectez-vous pour rechercher un trajet."
+                      : unknownError instanceof Error
+                        ? unknownError.message
                       : "Impossible de récupérer les trajets.",
                 });
               }

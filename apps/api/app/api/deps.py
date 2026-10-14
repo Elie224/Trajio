@@ -29,6 +29,10 @@ def _extract_bearer_token(authorization: str | None) -> str | None:
     return authorization[len(prefix) :].strip() or None
 
 
+def _unauthorized(detail: str = "Jeton invalide.") -> HTTPException:
+    return HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
+
+
 async def get_current_user(
     session: AsyncSession = Depends(get_db_session),
     authorization: str | None = Header(default=None),
@@ -36,32 +40,36 @@ async def get_current_user(
 ) -> User:
     token = access_token_cookie or _extract_bearer_token(authorization)
     if not token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Non authentifié.")
+        raise _unauthorized("Non authentifié.")
 
     try:
         payload = decode_token(token)
     except jwt.PyJWTError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Jeton invalide."
-        ) from exc
+        raise _unauthorized() from exc
 
     if payload.get("type") != "access":
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Jeton invalide.")
+        raise _unauthorized()
 
     user_id_raw = payload.get("sub")
     if not isinstance(user_id_raw, str):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Jeton invalide.")
+        raise _unauthorized()
 
     try:
         user_id = UUID(user_id_raw)
     except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Jeton invalide."
-        ) from exc
+        raise _unauthorized() from exc
 
     user = await session.get(User, user_id)
     if user is None or user.deleted_at is not None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Compte introuvable.")
+        raise _unauthorized("Compte introuvable.")
+
+    # Tokens issued before the last password change are no longer valid.
+    if user.password_changed_at is not None:
+        issued_at = payload.get("iat")
+        if not isinstance(issued_at, int | float) or issued_at < int(
+            user.password_changed_at.timestamp()
+        ):
+            raise _unauthorized("Session expirée.")
 
     if user.status in {UserStatus.BANNED, UserStatus.SUSPENDED}:
         raise HTTPException(

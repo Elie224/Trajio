@@ -1,8 +1,12 @@
 # Securite, RGPD et reglementation
 
-> **Statut : intention.** Seul le mecanisme de configuration et l'alerte au
-> demarrage sur `SECRET_KEY` sont en place. Le reste est a implementer avec les
-> modules correspondants.
+> **Statut : partiellement en place.** Audit du 14/10/2026 corrige : validation des
+> secrets au demarrage, Argon2id, politique 12 caracteres + liste noire, cookies
+> `HttpOnly`/`SameSite=Strict`, limitation de debit (IP + compte), anti-enumeration,
+> jeton de reinitialisation a usage unique, revocation des acces apres changement de
+> mot de passe, recherche authentifiee avec coordonnees arrondies, anonymisation a la
+> suppression et export des donnees, en-tetes de securite. Restent a faire : envoi
+> d'emails, verification telephone/identite, CSP cote web, purge automatique.
 
 ## 1. Gestion des secrets
 

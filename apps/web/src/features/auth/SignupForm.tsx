@@ -45,10 +45,10 @@ export function SignupForm() {
                   email: String(formData.get("email") ?? ""),
                   password,
                 });
-                await login(String(formData.get("email") ?? ""), password);
                 if (result.verification_required) {
-                  setSuccess("Compte créé. Vérification email activée sur cet environnement.");
+                  setSuccess(result.message);
                 } else {
+                  await login(String(formData.get("email") ?? ""), password);
                   setSuccess("Compte créé. Connexion réussie.");
                 }
                 setTimeout(() => {
@@ -97,7 +97,7 @@ export function SignupForm() {
                 name="password"
                 type="password"
                 className="field"
-                minLength={8}
+                minLength={12}
                 required
                 autoComplete="new-password"
               />
@@ -111,7 +111,7 @@ export function SignupForm() {
                 name="password_confirm"
                 type="password"
                 className="field"
-                minLength={8}
+                minLength={12}
                 required
                 autoComplete="new-password"
               />

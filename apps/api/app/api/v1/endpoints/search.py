@@ -8,12 +8,40 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db_session
+from app.api.deps import get_db_session, require_active_user
+from app.core.config import settings
 from app.matching import PassengerSearchInput, TripCandidateInput, score_trip_candidate
 from app.models import Trip, TripStatus, User, Vehicle
 from app.schemas.trip import TripSearchResponse, TripSearchResult
 
 router = APIRouter(prefix="/search", tags=["search"])
+
+LIKE_ESCAPE_CHAR = "\\"
+
+
+def escape_like(value: str) -> str:
+    """Neutralise LIKE wildcards supplied by the user."""
+    return (
+        value.replace(LIKE_ESCAPE_CHAR, LIKE_ESCAPE_CHAR * 2)
+        .replace("%", LIKE_ESCAPE_CHAR + "%")
+        .replace("_", LIKE_ESCAPE_CHAR + "_")
+    )
+
+
+def fuzz_coordinate(value: float, decimals: int | None = None) -> float:
+    """Round a coordinate for public display (2 decimals ~ 1 km).
+
+    Deterministic on purpose: random noise could be averaged out over
+    repeated searches.
+    """
+    places = settings.SEARCH_COORDINATE_DECIMALS if decimals is None else decimals
+    return round(float(value), places)
+
+
+def public_driver_name(first_name: str, last_name: str) -> str:
+    """First name and last-name initial only, e.g. "Marie D."."""
+    initial = last_name.strip()[:1].upper()
+    return f"{first_name.strip()} {initial}." if initial else first_name.strip()
 
 
 @router.get("/trips", response_model=TripSearchResponse)
@@ -30,6 +58,7 @@ async def search_trips(
     max_price_cents: int | None = Query(default=None, ge=0),
     limit: int = Query(default=30, ge=1, le=50),
     session: AsyncSession = Depends(get_db_session),
+    _user: User = Depends(require_active_user),
 ) -> TripSearchResponse:
     candidate_limit = min(max(limit * 4, 30), 200)
     query = (
@@ -67,9 +96,17 @@ async def search_trips(
     )
 
     if origin_query:
-        query = query.where(Trip.origin_label.ilike(f"%{origin_query.strip()}%"))
+        query = query.where(
+            Trip.origin_label.ilike(
+                f"%{escape_like(origin_query.strip())}%", escape=LIKE_ESCAPE_CHAR
+            )
+        )
     if destination_query:
-        query = query.where(Trip.destination_label.ilike(f"%{destination_query.strip()}%"))
+        query = query.where(
+            Trip.destination_label.ilike(
+                f"%{escape_like(destination_query.strip())}%", escape=LIKE_ESCAPE_CHAR
+            )
+        )
     if date_filter:
         start = datetime.combine(date_filter, time.min, tzinfo=UTC)
         end = start + timedelta(days=1)
@@ -96,6 +133,7 @@ async def search_trips(
     )
     ranked_items: list[TripSearchResult] = []
     for row in rows:
+        # Scoring uses exact positions server-side; only rounded ones leave the API.
         score = score_trip_candidate(
             search_input,
             TripCandidateInput(
@@ -116,14 +154,14 @@ async def search_trips(
             TripSearchResult(
                 id=row.id,
                 driver_id=row.driver_id,
-                driver_name=f"{row.first_name} {row.last_name}",
+                driver_name=public_driver_name(row.first_name, row.last_name),
                 vehicle_label=f"{row.brand} {row.model}",
                 origin_label=row.origin_label,
                 destination_label=row.destination_label,
-                origin_lat=float(row.origin_lat),
-                origin_lng=float(row.origin_lng),
-                destination_lat=float(row.destination_lat),
-                destination_lng=float(row.destination_lng),
+                origin_lat=fuzz_coordinate(row.origin_lat),
+                origin_lng=fuzz_coordinate(row.origin_lng),
+                destination_lat=fuzz_coordinate(row.destination_lat),
+                destination_lng=fuzz_coordinate(row.destination_lng),
                 departure_time=row.departure_time,
                 seats_available=row.seats_available,
                 is_paid=row.is_paid,

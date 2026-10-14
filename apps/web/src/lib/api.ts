@@ -11,7 +11,8 @@ export type HealthPayload = {
   status: string;
   service: string;
   version: string;
-  environment: string;
+  // Omitted by the API in production.
+  environment?: string;
   timestamp: string;
 };
 
@@ -72,10 +73,10 @@ export type RegisterPayload = {
   password: string;
 };
 
+// Identical whether or not the email already exists (anti-enumeration).
 export type RegisterResult = {
-  user: UserProfile;
+  message: string;
   verification_required: boolean;
-  verification_token: string | null;
 };
 
 export async function register(payload: RegisterPayload): Promise<RegisterResult> {
@@ -111,6 +112,14 @@ export async function logout(): Promise<{ message: string }> {
   return fetchJson<{ message: string }>("/api/v1/auth/logout", {
     method: "POST",
   });
+}
+
+export async function exportMyData(): Promise<Record<string, unknown>> {
+  return fetchJson<Record<string, unknown>>("/api/v1/auth/me/export");
+}
+
+export async function deleteAccount(): Promise<{ message: string }> {
+  return fetchJson<{ message: string }>("/api/v1/auth/me", { method: "DELETE" });
 }
 
 export async function fetchCurrentUser(): Promise<UserProfile> {

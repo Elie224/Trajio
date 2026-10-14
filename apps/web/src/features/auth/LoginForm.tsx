@@ -67,7 +67,7 @@ export function LoginForm() {
                 name="password"
                 className="field"
                 placeholder="••••••••"
-                minLength={8}
+                minLength={1}
                 required
                 autoComplete="current-password"
               />

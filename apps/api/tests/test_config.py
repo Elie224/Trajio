@@ -35,5 +35,9 @@ def test_cors_origins_are_parsed_from_a_comma_separated_list() -> None:
 
 
 def test_production_flag_drives_exposure_of_the_docs() -> None:
-    assert Settings(APP_ENV="production").is_production is True
+    strong = {
+        "SECRET_KEY": "x9Fq2Lm7Rt4Vb8Nc1Zd6Hs3Pw5Jy0Ge-kA7uQ",
+        "POSTGRES_PASSWORD": "Qm8-vT3z-Lp6-Wn2-Hx9",
+    }
+    assert Settings(APP_ENV="production", **strong).is_production is True
     assert Settings(APP_ENV="development").is_production is False

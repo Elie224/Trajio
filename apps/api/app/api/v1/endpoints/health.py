@@ -3,6 +3,7 @@
 GET /health is a pure liveness probe: it answers even when the database is
 down, so an orchestrator can tell "process alive" from "dependency broken".
 GET /health/ready is the readiness probe and does talk to PostgreSQL/PostGIS.
+In production, neither probe discloses environment or internal details.
 """
 
 from datetime import UTC, datetime
@@ -19,13 +20,15 @@ router = APIRouter()
 
 @router.get("/health", summary="Liveness probe")
 async def health() -> dict[str, str]:
-    return {
+    body = {
         "status": "ok",
         "service": settings.PROJECT_NAME,
         "version": __version__,
-        "environment": settings.APP_ENV,
         "timestamp": datetime.now(UTC).isoformat(),
     }
+    if not settings.is_production:
+        body["environment"] = settings.APP_ENV
+    return body
 
 
 @router.get("/health/ready", summary="Readiness probe, checks PostgreSQL and PostGIS")
@@ -36,12 +39,15 @@ async def readiness(response: Response) -> dict[str, object]:
         async with async_session_scope() as session:
             await session.execute(text("SELECT 1"))
             postgis = await session.execute(text("SELECT PostGIS_Version()"))
-            checks["postgis_version"] = postgis.scalar_one()
+            postgis_version = postgis.scalar_one()
+        if not settings.is_production:
+            checks["postgis_version"] = postgis_version
         checks["database"] = "up"
     except Exception as exc:  # noqa: BLE001 - a probe must never leak internals
         checks["status"] = "degraded"
         checks["database"] = "down"
-        checks["error"] = type(exc).__name__
+        if not settings.is_production:
+            checks["error"] = type(exc).__name__
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
 
     return checks

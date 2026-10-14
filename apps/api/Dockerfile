@@ -24,7 +24,6 @@ RUN pip install --upgrade pip && pip install .
 
 COPY alembic.ini ./
 COPY alembic ./alembic
-COPY tests ./tests
 
 # The API never runs as root.
 RUN useradd --create-home --uid 1000 trajio
