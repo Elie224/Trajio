@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // e2e Playwright (owned by Tests, not installed in apps/web)
+    "e2e/**",
   ]),
 ]);
 
