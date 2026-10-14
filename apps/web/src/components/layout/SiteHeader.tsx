@@ -1,14 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, CarFront, MapPinned } from "lucide-react";
 
 import { Container } from "@/components/ui/Container";
 import { AuthActions } from "@/features/auth/AuthActions";
+import { getSession } from "@/features/auth/session";
 import { env } from "@/lib/env";
 import { loginHref } from "@/lib/safe-redirect";
+
+/** Shown only to signed-in users. */
+const ACCOUNT_ITEM = { href: "/account", label: "Mon compte" } as const;
 
 const NAV_ITEMS = [
   { href: "/", label: "Accueil" },
@@ -16,12 +20,28 @@ const NAV_ITEMS = [
   { href: "/offer", label: "Proposer un trajet" },
   { href: "/trips", label: "Mes trajets" },
   { href: "/messages", label: "Messages" },
-  { href: "/account", label: "Mon compte" },
 ] as const;
 
 export function SiteHeader() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    getSession()
+      .then((user) => {
+        if (!cancelled) setIsLoggedIn(user !== null);
+      })
+      .catch(() => {
+        if (!cancelled) setIsLoggedIn(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const navItems = isLoggedIn ? [...NAV_ITEMS, ACCOUNT_ITEM] : NAV_ITEMS;
 
   const closeMenu = () => setIsMobileMenuOpen(false);
 
@@ -43,7 +63,7 @@ export function SiteHeader() {
         </Link>
 
         <nav className="hidden items-center gap-6 text-sm font-medium text-slate-600 lg:flex">
-          {NAV_ITEMS.map((item) => (
+          {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -76,7 +96,7 @@ export function SiteHeader() {
                 <MapPinned className="h-3.5 w-3.5" /> Navigation
               </div>
               <div className="flex flex-col gap-1">
-                {NAV_ITEMS.map((item) => (
+                {navItems.map((item) => (
                   <Link
                     key={item.href}
                     href={item.href}

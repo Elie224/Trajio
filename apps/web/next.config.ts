@@ -42,6 +42,10 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Always inlined at build time (default "false"), even when the variable is unset.
+  env: {
+    NEXT_PUBLIC_PASSWORD_RESET_ENABLED: process.env.NEXT_PUBLIC_PASSWORD_RESET_ENABLED ?? "false",
+  },
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },

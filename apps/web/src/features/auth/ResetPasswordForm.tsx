@@ -66,7 +66,7 @@ export function ResetPasswordForm() {
             <div className="mt-4">
               <Link
                 href="/forgot-password"
-                className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+                className="inline-flex min-h-12 items-center justify-center rounded-[var(--radius-control)] bg-primary-strong px-5 text-base font-medium text-white hover:bg-primary-hover"
               >
                 Demander un nouveau lien
               </Link>

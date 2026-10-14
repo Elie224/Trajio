@@ -77,129 +77,144 @@
   }
 }
 
-html {
-  color-scheme: light;
+/*
+ * Base and component rules live in cascade layers so Tailwind utilities
+ * (e.g. text-white on a link) always win over them.
+ */
+@layer base {
+  html {
+    color-scheme: light;
+  }
+
+  body {
+    background-color: var(--color-page-bg);
+    color: var(--color-page-text);
+    font-size: 1rem;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-heading);
+    font-weight: 600;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  /* Visible focus ring everywhere, in the primary colour. */
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
 }
 
-body {
-  background-color: var(--color-page-bg);
-  color: var(--color-page-text);
-  font-size: 1rem;
-}
+@layer components {
+  /* Prices and durations. */
+  .figure {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
 
-h1,
-h2,
-h3 {
-  font-family: var(--font-heading);
-  font-weight: 600;
-}
+  .surface {
+    background-color: var(--color-page-surface);
+    border: 1px solid var(--color-page-border);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+  }
 
-a {
-  color: inherit;
-  text-decoration: none;
-}
+  .field {
+    display: block;
+    width: 100%;
+    min-height: 48px;
+    border-radius: var(--radius-control);
+    border: 1px solid var(--color-page-border);
+    background: #fff;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    color: var(--color-page-text);
+    transition:
+      border-color 180ms ease,
+      box-shadow 180ms ease;
+  }
 
-/* Visible focus ring everywhere, in the primary colour. */
-:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
+  .field::placeholder {
+    color: #4b5563;
+  }
 
-/* Prices and durations. */
-.figure {
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
+  .field:hover {
+    border-color: #d1d5db;
+  }
 
-.surface {
-  background-color: var(--color-page-surface);
-  border: 1px solid var(--color-page-border);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-card);
-}
+  .field:focus-visible {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-active);
+  }
 
-.field {
-  display: block;
-  width: 100%;
-  min-height: 48px;
-  border-radius: var(--radius-control);
-  border: 1px solid var(--color-page-border);
-  background: #fff;
-  padding: 0.75rem 1rem;
-  font-size: 1rem;
-  color: var(--color-page-text);
-  transition:
-    border-color 180ms ease,
-    box-shadow 180ms ease;
-}
+  .field[disabled] {
+    background-color: #f9fafb;
+    color: #4b5563;
+    cursor: not-allowed;
+  }
 
-.field::placeholder {
-  color: #4b5563;
-}
+  .label {
+    margin-bottom: 0.25rem;
+    display: inline-flex;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-page-muted);
+  }
 
-.field:hover {
-  border-color: #d1d5db;
-}
+  .map-shell {
+    min-height: 380px;
+    overflow: hidden;
+    border-radius: var(--radius-card);
+    border: 1px solid var(--color-page-border);
+  }
 
-.field:focus-visible {
-  outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-active);
-}
-
-.field[disabled] {
-  background-color: #f9fafb;
-  color: #4b5563;
-  cursor: not-allowed;
-}
-
-.label {
-  margin-bottom: 0.25rem;
-  display: inline-flex;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--color-page-muted);
-}
-
-.map-shell {
-  min-height: 380px;
-  overflow: hidden;
-  border-radius: var(--radius-card);
-  border: 1px solid var(--color-page-border);
-}
-
-/* MapLibre pins with a pulsing halo. */
-/* No `position` here: MapLibre positions the marker element absolutely. */
-.map-pin {
-  display: block;
-  width: 18px;
-  height: 18px;
-  border-radius: 999px;
-  border: 3px solid #fff;
-  box-shadow: var(--shadow-card);
-}
-
-.map-pin {
-  animation: var(--animate-halo);
-}
-
-@media (prefers-reduced-motion: reduce) {
+  /* MapLibre pins with a pulsing halo. */
+  /* No `position` here: MapLibre positions the marker element absolutely. */
   .map-pin {
-    animation: none;
-    box-shadow:
-      0 0 0 8px rgb(209 250 229 / 0.8),
-      var(--shadow-card);
+    display: block;
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    border: 3px solid #fff;
+    box-shadow: var(--shadow-card);
   }
-}
 
-.page-section {
-  padding-top: 3rem;
-  padding-bottom: 3rem;
-}
+  .map-pin {
+    animation: var(--animate-halo);
+  }
 
-@media (max-width: 640px) {
+  @media (prefers-reduced-motion: reduce) {
+    .map-pin {
+      animation: none;
+      box-shadow:
+        0 0 0 8px rgb(209 250 229 / 0.8),
+        var(--shadow-card);
+    }
+  }
+
   .page-section {
-    padding-top: 2rem;
-    padding-bottom: 2rem;
+    padding-top: 3rem;
+    padding-bottom: 3rem;
   }
+
+  @media (max-width: 640px) {
+    .page-section {
+      padding-top: 2rem;
+      padding-bottom: 2rem;
+    }
+  }
+}
+
+/* Native <dialog> backdrop: always the full viewport, including mobile. */
+dialog::backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgb(17 24 39 / 0.5);
 }

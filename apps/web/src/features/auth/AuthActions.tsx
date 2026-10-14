@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { fetchCurrentUser, isUnauthenticated, logout, type UserProfile } from "@/lib/api";
+import { getSession } from "@/features/auth/session";
+import { logout, type UserProfile } from "@/lib/api";
 import { loginHref } from "@/lib/safe-redirect";
 
 type AuthState =
@@ -18,13 +19,9 @@ export function AuthActions() {
   const pathname = usePathname();
 
   useEffect(() => {
-    fetchCurrentUser()
-      .then((user) => setState({ status: "authenticated", user }))
+    getSession()
+      .then((user) => setState(user ? { status: "authenticated", user } : { status: "anonymous" }))
       .catch((error: unknown) => {
-        if (isUnauthenticated(error)) {
-          setState({ status: "anonymous" });
-          return;
-        }
         setState({
           status: "error",
           message: error instanceof Error ? error.message : "Erreur inattendue",

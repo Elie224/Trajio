@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardTitle } from "@/components/ui/Card";
 import { ACCOUNT_DELETED_FLAG } from "@/lib/account-flags";
 import { ApiError, deleteAccount, exportMyData, fetchDeletionPreview } from "@/lib/api";
+import { retryAfterMinutes } from "@/lib/retry-after";
 
 function Spinner() {
   return (
@@ -120,11 +121,19 @@ function parsePreview(data: unknown): DeletionPreview | null {
   return { trips, bookings };
 }
 
+/** "1 trajet à venir", "2 trajets à venir", "aucune réservation". */
+function countLabel(count: number, singular: string, plural: string, feminine: boolean): string {
+  if (count === 0) return `${feminine ? "aucune" : "aucun"} ${singular}`;
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
 function DeleteAccountDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<1 | 2>(1);
   const [preview, setPreview] = useState<DeletionPreview | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
   // Password stays in this component's local state only: never logged, never global.
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -139,10 +148,24 @@ function DeleteAccountDialog({ open, onClose }: { open: boolean; onClose: () => 
       setStep(1);
       setError(null);
       setPreview(null);
+      setPreviewError(null);
       dialog.showModal();
+      // autoFocus is not honoured on re-opened dialogs: focus "Annuler" explicitly.
+      cancelRef.current?.focus();
       fetchDeletionPreview()
         .then((data) => setPreview(parsePreview(data)))
-        .catch(() => setPreview(null));
+        .catch((err: unknown) => {
+          setPreview(null);
+          if (err instanceof ApiError && err.status === 429) {
+            setPreviewError(
+              err.retryAfter !== null
+                ? `Le détail de ce qui sera annulé est momentanément indisponible (trop de demandes). Réessayez dans ${retryAfterMinutes(err.retryAfter)} min.`
+                : "Le détail de ce qui sera annulé est momentanément indisponible (trop de demandes).",
+            );
+          } else if (!(err instanceof ApiError && err.status === 404)) {
+            setPreviewError("Le détail de ce qui sera annulé n'a pas pu être chargé.");
+          }
+        });
     } else if (!open && dialog.open) {
       dialog.close();
     }
@@ -202,7 +225,7 @@ function DeleteAccountDialog({ open, onClose }: { open: boolean; onClose: () => 
         event.preventDefault();
         close();
       }}
-      className="m-auto w-[min(32rem,calc(100%-2rem))] rounded-2xl bg-white p-6 shadow-xl ring-1 ring-slate-200 backdrop:bg-slate-900/50"
+      className="m-auto w-[min(32rem,calc(100%-2rem))] rounded-2xl bg-white p-6 shadow-xl ring-1 ring-slate-200 backdrop:fixed backdrop:inset-0 backdrop:bg-slate-900/50"
     >
       {step === 1 ? (
         <div>
@@ -218,20 +241,25 @@ function DeleteAccountDialog({ open, onClose }: { open: boolean; onClose: () => 
             </ul>
             {preview && (
               <p className="font-medium text-slate-800">
-                Concerné : {preview.trips} trajet(s) à venir et {preview.bookings} réservation(s) à
-                venir.
+                Concerné : {countLabel(preview.trips, "trajet à venir", "trajets à venir", false)} et{" "}
+                {countLabel(preview.bookings, "réservation à venir", "réservations à venir", true)}.
+              </p>
+            )}
+            {previewError && (
+              <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-amber-900">
+                {previewError}
               </p>
             )}
             <p>
               Vous pouvez d&apos;abord{" "}
-              <a href="#mes-donnees" onClick={close} className="font-medium text-brand-700 underline">
+              <a href="#mes-donnees" onClick={close} className="font-medium text-primary-strong underline underline-offset-2">
                 télécharger vos données
               </a>
               .
             </p>
           </div>
           <div className="mt-6 flex justify-end gap-3">
-            <Button type="button" variant="secondary" onClick={close} autoFocus>
+            <Button ref={cancelRef} type="button" variant="secondary" onClick={close}>
               Annuler
             </Button>
             <Button
@@ -262,15 +290,15 @@ function DeleteAccountDialog({ open, onClose }: { open: boolean; onClose: () => 
             id="delete-account-password"
             type="password"
             autoComplete="current-password"
-            className="field"
+            className={"field " + (error?.kind === "password" ? "!border-danger" : "")}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             disabled={submitting}
-            aria-invalid={error?.kind === "password" ? true : undefined}
+            aria-invalid={error?.kind === "password"}
             aria-describedby={error?.kind === "password" ? errorId : undefined}
           />
           {error?.kind === "password" && (
-            <p id={errorId} className="mt-1 text-sm text-rose-700">
+            <p id={errorId} className="mt-1 text-sm font-medium text-danger">
               {error.message}
             </p>
           )}
@@ -287,7 +315,7 @@ function DeleteAccountDialog({ open, onClose }: { open: boolean; onClose: () => 
               type="submit"
               disabled={password === "" || submitting}
               aria-busy={submitting}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-rose-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-rose-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600 disabled:cursor-not-allowed disabled:bg-rose-300"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-[var(--radius-control)] bg-danger px-5 text-base font-medium text-white transition-colors hover:bg-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting && <Spinner />}
               Supprimer définitivement
