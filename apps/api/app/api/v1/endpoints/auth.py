@@ -502,4 +502,5 @@ async def reset_password(
     user.password_changed_at = now
     await _revoke_refresh_tokens(session, user.id, now)
     await session.commit()
+    audit_logger.info("password_reset user_id=%s", user.id)
     return AuthMessage(message="Mot de passe réinitialisé. Reconnectez-vous.")

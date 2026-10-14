@@ -1,5 +1,6 @@
 """DELETE /me and GET /me/deletion-preview, without a database."""
 
+import time
 from collections.abc import Iterator
 from types import SimpleNamespace
 from uuid import uuid4
@@ -127,3 +128,14 @@ async def test_delete_me_account_limit_without_ip_limit(
         for i in range(6)
     ]
     assert codes == [403] * 5 + [429]
+
+
+async def test_ip_limit_retry_after_is_time_left(client, fake_session, monkeypatch) -> None:
+    monkeypatch.setattr(auth_endpoints, "verify_password", lambda *_: False)
+    for _ in range(5):
+        await client.request("DELETE", URL, json={"password": "x"})
+    account_limiter.clear()  # only the per-IP limit can answer the 6th call
+    monkeypatch.setattr(limiter.limiter, "get_window_stats", lambda *_: (time.time() + 42, 0))
+    response = await client.request("DELETE", URL, json={"password": "x"})
+    assert response.status_code == 429
+    assert 42 <= int(response.headers["Retry-After"]) <= 43

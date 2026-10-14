@@ -23,11 +23,21 @@ limiter = Limiter(
 )
 
 
-async def rate_limit_exceeded_handler(_: Request, exc: RateLimitExceeded) -> JSONResponse:
+def _seconds_until_reset(request: Request, exc: RateLimitExceeded) -> int:
+    """Time left in the current window, falling back to the full window length."""
     try:
-        retry_after = int(exc.limit.limit.get_expiry())
-    except AttributeError:
-        retry_after = 60
+        current_limit, args = request.state.view_rate_limit
+        reset_at, _ = limiter.limiter.get_window_stats(current_limit, *args)
+        return max(1, int(reset_at - time.time()) + 1)
+    except Exception:  # noqa: BLE001 - never fail the 429 itself
+        try:
+            return int(exc.limit.limit.get_expiry())
+        except AttributeError:
+            return 60
+
+
+async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    retry_after = _seconds_until_reset(request, exc)
     return JSONResponse(
         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
         content={"detail": TOO_MANY_REQUESTS_MESSAGE},
