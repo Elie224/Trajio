@@ -84,6 +84,10 @@ class ResetPasswordRequest(BaseModel):
         return _check_password_policy(value)
 
 
+class DeleteAccountRequest(BaseModel):
+    password: str = Field(min_length=1, max_length=256)
+
+
 class AuthMessage(BaseModel):
     message: str
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -39,6 +40,7 @@ from app.models import (
 )
 from app.schemas.auth import (
     AuthMessage,
+    DeleteAccountRequest,
     ForgotPasswordRequest,
     ForgotPasswordResponse,
     LoginRequest,
@@ -52,6 +54,8 @@ from app.schemas.auth import (
 from app.schemas.booking import BookingPublic
 from app.schemas.trip import TripPublic
 from app.schemas.vehicle import VehiclePublic
+
+audit_logger = logging.getLogger("trajio.audit")
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -331,9 +335,7 @@ async def export_my_data(
     """RGPD right of access and portability: every record tied to the account."""
     vehicles = (await session.scalars(select(Vehicle).where(Vehicle.owner_id == user.id))).all()
     trips = (await session.scalars(select(Trip).where(Trip.driver_id == user.id))).all()
-    bookings = (
-        await session.scalars(select(Booking).where(Booking.passenger_id == user.id))
-    ).all()
+    bookings = (await session.scalars(select(Booking).where(Booking.passenger_id == user.id))).all()
     profile = UserPublic.model_validate(user).model_dump(mode="json")
     profile["last_login_at"] = user.last_login_at.isoformat() if user.last_login_at else None
     return {
@@ -346,8 +348,11 @@ async def export_my_data(
 
 
 @router.delete("/me", response_model=AuthMessage)
+@limiter.limit("5/hour")
 async def delete_me(
+    request: Request,
     response: Response,
+    payload: DeleteAccountRequest,
     session: AsyncSession = Depends(get_db_session),
     user: User = Depends(get_current_user),
 ) -> AuthMessage:
@@ -356,6 +361,11 @@ async def delete_me(
     Trips and bookings rows are kept, detached from any identity, because the
     other party of a trip keeps a legitimate interest in its history.
     """
+    account_limiter.hit("delete", str(user.id), limit=5, window_seconds=3600)
+    if not verify_password(payload.password, user.password_hash):
+        audit_logger.warning("account_delete_denied user_id=%s", user.id)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Mot de passe incorrect.")
+
     now = datetime.now(UTC)
 
     # Bookings made as a passenger: cancel the active ones, give seats back.
@@ -413,6 +423,7 @@ async def delete_me(
     await _revoke_refresh_tokens(session, user.id, now)
     await session.commit()
     _clear_auth_cookies(response)
+    audit_logger.info("account_deleted user_id=%s", user.id)
     return AuthMessage(message="Compte supprimé et données personnelles anonymisées.")
 
 
