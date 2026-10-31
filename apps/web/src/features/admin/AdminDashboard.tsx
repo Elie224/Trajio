@@ -49,8 +49,10 @@ export function AdminDashboard() {
   // triggered by an action flips it back through `refreshStats`.
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Bumped to reload the statistics; also drives the "actualisé" indicator.
+  // Bumped to reload the statistics.
   const [reloadKey, setReloadKey] = useState(0);
+  // Timestamp of the last successful load, shown as "actualisé à ...".
+  const [loadedAt, setLoadedAt] = useState<Date | null>(null);
 
   const isAdmin = session.status === "authenticated" && session.user.role === "admin";
 
@@ -58,6 +60,7 @@ export function AdminDashboard() {
     const payload = await fetchAdminStats(signal);
     setStats(payload);
     setKpis(buildKpis(payload));
+    setLoadedAt(new Date());
     setError(null);
   }, []);
 
@@ -131,18 +134,30 @@ export function AdminDashboard() {
               Activité de la plateforme, modération des comptes et traitement des signalements.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={refreshStats}
-            disabled={loading}
-            className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-[var(--radius-control)] border border-page-border bg-white px-3 text-sm font-medium text-page-text transition-colors hover:bg-brand-50 disabled:cursor-not-allowed disabled:bg-active"
-          >
-            <RefreshCw
-              className={"h-4 w-4 " + (loading ? "animate-spin" : "")}
-              aria-hidden="true"
-            />
-            Actualiser
-          </button>
+          <div className="flex shrink-0 flex-col items-start gap-1 sm:items-end">
+            <button
+              type="button"
+              onClick={refreshStats}
+              disabled={loading}
+              className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-[var(--radius-control)] border border-page-border bg-white px-3 text-sm font-medium text-page-text transition-colors hover:bg-brand-50 disabled:cursor-not-allowed disabled:bg-active"
+            >
+              <RefreshCw
+                className={"h-4 w-4 " + (loading ? "animate-spin" : "")}
+                aria-hidden="true"
+              />
+              Actualiser
+            </button>
+            {loadedAt && (
+              <p className="text-xs text-page-muted" role="status">
+                Actualisé à{" "}
+                {loadedAt.toLocaleTimeString("fr-FR", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                })}
+              </p>
+            )}
+          </div>
         </div>
 
         <Tabs
@@ -186,11 +201,11 @@ export function AdminDashboard() {
         </TabPanel>
 
         <TabPanel idPrefix={ID_PREFIX} tabId="users" active={tab === "users"}>
-          <AdminUsersPanel onChanged={refreshStats} />
+          <AdminUsersPanel onChanged={refreshStats} active={tab === "users"} />
         </TabPanel>
 
         <TabPanel idPrefix={ID_PREFIX} tabId="reports" active={tab === "reports"}>
-          <AdminReportsPanel onChanged={refreshStats} />
+          <AdminReportsPanel onChanged={refreshStats} active={tab === "reports"} />
         </TabPanel>
       </Container>
     </section>

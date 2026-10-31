@@ -11,6 +11,7 @@ import type {
   AdminReportStatus,
   AdminStats,
   AdminUser,
+  ReportReason,
   UserProfile,
 } from "@/lib/api";
 
@@ -101,14 +102,19 @@ export function formatRating(value: number): string {
   }).format(value);
 }
 
-/** Statuses an administrator may set on a user account. */
+/**
+ * Statuses an administrator may set on a user account.
+ *
+ * `tone` is the semantic of the action: only "danger" is used to pick the
+ * destructive button variant, the other two are regular actions.
+ */
 export const USER_STATUS_ACTIONS: ReadonlyArray<{
   status: AdminUserStatus;
   label: string;
-  tone: "success" | "warning" | "danger";
+  tone: "regular" | "danger";
 }> = [
-  { status: "active", label: "Réactiver", tone: "success" },
-  { status: "suspended", label: "Suspendre", tone: "warning" },
+  { status: "active", label: "Réactiver", tone: "regular" },
+  { status: "suspended", label: "Suspendre", tone: "regular" },
   { status: "banned", label: "Bannir", tone: "danger" },
 ];
 
@@ -182,7 +188,7 @@ export function userStatusLabel(status: AdminUserStatus): string {
 }
 
 /** French label for a report reason. */
-export function reportReasonLabel(reason: string): string {
+export function reportReasonLabel(reason: ReportReason): string {
   switch (reason) {
     case "safety":
       return "Sécurité";
@@ -194,15 +200,53 @@ export function reportReasonLabel(reason: string): string {
       return "Véhicule";
     case "payment":
       return "Paiement";
-    default:
+    case "other":
       return "Autre";
   }
 }
 
-/** True when the two strings match, ignoring case and surrounding spaces. */
-export function matchesUserQuery(user: AdminUser, query: string): boolean {
-  const needle = query.trim().toLowerCase();
-  if (needle === "") return true;
-  return [user.email, user.first_name, user.last_name]
-    .some((field) => field.toLowerCase().includes(needle));
+/**
+ * Label of the user search field.
+ *
+ * The API matches the email, the name AND the phone number
+ * (`build_user_filters` in app/services/admin.py). The label advertises
+ * the phone search so the surface is not an unannounced enumeration
+ * vector.
+ */
+export const USER_SEARCH_LABEL = "Recherche (nom, e-mail ou téléphone)";
+
+/**
+ * What a moderation panel should display after an action.
+ *
+ * The mutation and the refresh that follows are two separate operations:
+ * if the mutation succeeded but the refresh failed, the administrator must
+ * not be told the action failed — they would apply the same sanction twice.
+ */
+export type ActionOutcome =
+  | { kind: "success"; notice: string }
+  | { kind: "action-error"; message: string }
+  | { kind: "refresh-error"; message: string };
+
+/**
+ * Builds the outcome of a moderation action.
+ *
+ * `actionError` is the message of the failed mutation (if any), `refreshError`
+ * the one of the failed refresh (if any). They are never merged.
+ */
+export function buildActionOutcome(params: {
+  successNotice: string;
+  actionError: string | null;
+  refreshError: string | null;
+}): ActionOutcome {
+  if (params.actionError !== null) {
+    return { kind: "action-error", message: params.actionError };
+  }
+  if (params.refreshError !== null) {
+    return {
+      kind: "refresh-error",
+      message:
+        "L'action a été appliquée mais la liste n'a pas pu être actualisée. " + params.refreshError,
+    };
+  }
+  return { kind: "success", notice: params.successNotice };
 }

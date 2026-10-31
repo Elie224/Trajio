@@ -8,6 +8,7 @@ import { Card, CardTitle } from "@/components/ui/Card";
 import { ServiceError } from "@/components/ui/ServiceError";
 import {
   availableReportActions,
+  buildActionOutcome,
   reportReasonLabel,
   reportStatusLabel,
 } from "@/features/admin/admin-metrics";
@@ -54,7 +55,14 @@ function actionLabel(status: AdminReportStatus): string {
  * The report content is displayed as text only; nothing here renders the
  * reporter's identity as a link.
  */
-export function AdminReportsPanel({ onChanged }: { onChanged?: () => void }) {
+export function AdminReportsPanel({
+  onChanged,
+  active = true,
+}: {
+  onChanged?: () => void;
+  /** False while the panel is hidden: no request is sent until it is shown. */
+  active?: boolean;
+}) {
   const [reports, setReports] = useState<AdminReport[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -62,11 +70,16 @@ export function AdminReportsPanel({ onChanged }: { onChanged?: () => void }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  /** Failure of an action itself, kept apart from the success notice. */
+  const [actionError, setActionError] = useState<string | null>(null);
   const [pendingReportId, setPendingReportId] = useState<string | null>(null);
   // Bumped to force a reload of the current page (used by "Réessayer").
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    // The panel stays mounted when its tab is hidden, but it must not query
+    // the API: only the visible tab is allowed to spend the read quota.
+    if (!active) return;
     let cancelled = false;
     void fetchAdminReports({
       status: statusFilter || undefined,
@@ -89,7 +102,7 @@ export function AdminReportsPanel({ onChanged }: { onChanged?: () => void }) {
     return () => {
       cancelled = true;
     };
-  }, [statusFilter, offset, reloadKey]);
+  }, [active, statusFilter, offset, reloadKey]);
 
   async function reload() {
     const response = await fetchAdminReports({
@@ -101,19 +114,48 @@ export function AdminReportsPanel({ onChanged }: { onChanged?: () => void }) {
     setTotal(response.total);
   }
 
+  /**
+   * Runs a moderation decision, then refreshes the list.
+   *
+   * The two failures are reported apart: if the decision was applied but the
+   * reload failed, the administrator must not be told the decision failed.
+   */
+  async function runAction(
+    action: () => Promise<unknown>,
+    successMessage: string,
+    failureMessage: string,
+  ) {
+    setNotice(null);
+    setActionError(null);
+    let actionError: string | null = null;
+    try {
+      await action();
+    } catch (err: unknown) {
+      actionError = userFacingError(err, failureMessage);
+    }
+    let refreshError: string | null = null;
+    if (actionError === null) {
+      try {
+        await reload();
+        onChanged?.();
+      } catch (err: unknown) {
+        // The decision went through; only the list refresh failed.
+        refreshError = userFacingError(err, "Rechargez la page pour voir l'état à jour.");
+      }
+    }
+    const outcome = buildActionOutcome({ successNotice: successMessage, actionError, refreshError });
+    if (outcome.kind === "success") setNotice(outcome.notice);
+    else setActionError(outcome.message);
+  }
+
   async function changeStatus(report: AdminReport, status: AdminReportStatus) {
     setPendingReportId(report.id);
-    setNotice(null);
-    try {
-      await updateAdminReportStatus(report.id, status);
-      setNotice(`Signalement ${reportStatusLabel(status).toLowerCase()}.`);
-      await reload();
-      onChanged?.();
-    } catch (err: unknown) {
-      setNotice(userFacingError(err, "La mise à jour du signalement a échoué."));
-    } finally {
-      setPendingReportId(null);
-    }
+    await runAction(
+      () => updateAdminReportStatus(report.id, status),
+      `Signalement ${reportStatusLabel(status).toLowerCase()}.`,
+      "La mise à jour du signalement a échoué.",
+    );
+    setPendingReportId(null);
   }
 
   const canGoBack = offset > 0;
@@ -142,6 +184,15 @@ export function AdminReportsPanel({ onChanged }: { onChanged?: () => void }) {
           ))}
         </select>
       </div>
+
+      {actionError && (
+        <div
+          role="alert"
+          className="mt-3 rounded-[var(--radius-control)] border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+        >
+          {actionError}
+        </div>
+      )}
 
       {notice && (
         <p

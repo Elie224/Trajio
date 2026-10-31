@@ -10,7 +10,9 @@ import { ServiceError } from "@/components/ui/ServiceError";
 import {
   availableIdentityActions,
   availableStatusActions,
+  buildActionOutcome,
   needsIdentityReview,
+  USER_SEARCH_LABEL,
   userStatusLabel,
   type AdminUserStatus,
   type IdentityStatus,
@@ -80,7 +82,14 @@ function identityTone(status: AdminUser["id_document_status"]): "neutral" | "suc
  * on a 375px screen needs a horizontal scroll to reach the action buttons,
  * which is exactly where the administrator has to tap.
  */
-export function AdminUsersPanel({ onChanged }: { onChanged?: () => void }) {
+export function AdminUsersPanel({
+  onChanged,
+  active = true,
+}: {
+  onChanged?: () => void;
+  /** False while the panel is hidden: no request is sent until it is shown. */
+  active?: boolean;
+}) {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -91,11 +100,16 @@ export function AdminUsersPanel({ onChanged }: { onChanged?: () => void }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  /** Failure of an action itself, kept apart from the success notice. */
+  const [actionError, setActionError] = useState<string | null>(null);
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
   // Bumped to force a reload of the current page (used by "Réessayer").
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    // The panel stays mounted when its tab is hidden, but it must not query
+    // the API: only the visible tab is allowed to spend the read quota.
+    if (!active) return;
     let cancelled = false;
     void fetchAdminUsers({
       status: statusFilter || undefined,
@@ -120,7 +134,7 @@ export function AdminUsersPanel({ onChanged }: { onChanged?: () => void }) {
     return () => {
       cancelled = true;
     };
-  }, [statusFilter, roleFilter, appliedQuery, offset, reloadKey]);
+  }, [active, statusFilter, roleFilter, appliedQuery, offset, reloadKey]);
 
   /** Reloads the current page with the active filters. */
   async function reload() {
@@ -135,37 +149,60 @@ export function AdminUsersPanel({ onChanged }: { onChanged?: () => void }) {
     setTotal(response.total);
   }
 
+  /**
+   * Runs a moderation action, then refreshes the list.
+   *
+   * The two failures are reported apart: if the action succeeded but the
+   * reload failed, the administrator must not be told the action failed —
+   * they would apply the same sanction twice.
+   */
+  async function runAction(
+    action: () => Promise<unknown>,
+    successMessage: string,
+    failureMessage: string,
+  ) {
+    setNotice(null);
+    setActionError(null);
+    let actionError: string | null = null;
+    try {
+      await action();
+    } catch (err: unknown) {
+      actionError = userFacingError(err, failureMessage);
+    }
+    let refreshError: string | null = null;
+    if (actionError === null) {
+      try {
+        await reload();
+        onChanged?.();
+      } catch (err: unknown) {
+        // The action went through; only the list refresh failed.
+        refreshError = userFacingError(err, "Rechargez la page pour voir l'état à jour.");
+      }
+    }
+    const outcome = buildActionOutcome({ successNotice: successMessage, actionError, refreshError });
+    if (outcome.kind === "success") setNotice(outcome.notice);
+    else setActionError(outcome.message);
+  }
+
   async function changeStatus(user: AdminUser, status: AdminUserStatus) {
     setPendingUserId(user.id);
-    setNotice(null);
-    try {
-      await updateAdminUserStatus(user.id, status);
-      setNotice(`${user.first_name} ${user.last_name} est désormais ${userStatusLabel(status).toLowerCase()}.`);
-      await reload();
-      onChanged?.();
-    } catch (err: unknown) {
-      setNotice(userFacingError(err, "Le changement de statut a échoué."));
-    } finally {
-      setPendingUserId(null);
-    }
+    await runAction(
+      () => updateAdminUserStatus(user.id, status),
+      `${user.first_name} ${user.last_name} est désormais ${userStatusLabel(status).toLowerCase()}.`,
+      "Le changement de statut a échoué.",
+    );
+    setPendingUserId(null);
   }
 
   async function changeIdentity(user: AdminUser, idDocumentStatus: IdentityStatus) {
     setPendingUserId(user.id);
-    setNotice(null);
-    try {
-      await updateAdminUserIdentity(user.id, idDocumentStatus);
-      setNotice(
-        `Pièce d'identité de ${user.first_name} ${user.last_name} : ` +
-          (idDocumentStatus === "verified" ? "validée." : "refusée."),
-      );
-      await reload();
-      onChanged?.();
-    } catch (err: unknown) {
-      setNotice(userFacingError(err, "La vérification d'identité a échoué."));
-    } finally {
-      setPendingUserId(null);
-    }
+    await runAction(
+      () => updateAdminUserIdentity(user.id, idDocumentStatus),
+      `Pièce d'identité de ${user.first_name} ${user.last_name} : ` +
+        (idDocumentStatus === "verified" ? "validée." : "refusée."),
+      "La vérification d'identité a échoué.",
+    );
+    setPendingUserId(null);
   }
 
   const canGoBack = offset > 0;
@@ -247,7 +284,7 @@ export function AdminUsersPanel({ onChanged }: { onChanged?: () => void }) {
         }}
       >
         <div className="grid gap-1 text-sm text-page-muted">
-          <label htmlFor="admin-user-search">Recherche (nom ou e-mail)</label>
+          <label htmlFor="admin-user-search">{USER_SEARCH_LABEL}</label>
           <div className="relative">
             <Search
               className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-page-muted"
@@ -324,6 +361,15 @@ export function AdminUsersPanel({ onChanged }: { onChanged?: () => void }) {
           )}
         </div>
       </form>
+
+      {actionError && (
+        <div
+          role="alert"
+          className="mt-3 rounded-[var(--radius-control)] border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+        >
+          {actionError}
+        </div>
+      )}
 
       {notice && (
         <p

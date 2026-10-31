@@ -6,12 +6,14 @@ import {
   availableIdentityActions,
   availableReportActions,
   availableStatusActions,
+  buildActionOutcome,
   buildKpis,
   formatCount,
   formatRating,
-  matchesUserQuery,
   needsIdentityReview,
+  reportReasonLabel,
   reportStatusLabel,
+  USER_SEARCH_LABEL,
   userStatusLabel,
 } from "./admin-metrics";
 
@@ -214,20 +216,70 @@ describe("libellés", () => {
   });
 });
 
-describe("matchesUserQuery", () => {
-  it("trouve par e-mail, sans tenir compte de la casse", () => {
-    expect(matchesUserQuery(makeUser(), "ADA@EXEMPLE")).toBe(true);
+describe("reportReasonLabel", () => {
+  it("traduit chaque motif de signalement", () => {
+    expect(reportReasonLabel("safety")).toBe("Sécurité");
+    expect(reportReasonLabel("harassment")).toBe("Harcèlement");
+    expect(reportReasonLabel("no_show")).toBe("Absent");
+    expect(reportReasonLabel("vehicle")).toBe("Véhicule");
+    expect(reportReasonLabel("payment")).toBe("Paiement");
+    expect(reportReasonLabel("other")).toBe("Autre");
+  });
+});
+describe("buildActionOutcome", () => {
+  it("renvoie le succes quand tout s'est bien passe", () => {
+    const outcome = buildActionOutcome({
+      successNotice: "Compte suspendu.",
+      actionError: null,
+      refreshError: null,
+    });
+    expect(outcome).toEqual({ kind: "success", notice: "Compte suspendu." });
   });
 
-  it("trouve par nom", () => {
-    expect(matchesUserQuery(makeUser(), "lovelace")).toBe(true);
+  it("isole l'echec de l'action de celui du rafraichissement", () => {
+    const outcome = buildActionOutcome({
+      successNotice: "Compte suspendu.",
+      actionError: "Le changement de statut a echoue.",
+      refreshError: null,
+    });
+    expect(outcome.kind).toBe("action-error");
+    expect(outcome.kind === "action-error" && outcome.message).toBe(
+      "Le changement de statut a echoue.",
+    );
   });
 
-  it("ne trouve pas un terme absent", () => {
-    expect(matchesUserQuery(makeUser(), "turing")).toBe(false);
+  it("annonce que l'action a passe quand seul le rafraichissement echoue", () => {
+    // C'est le point critique : dire "l'action a echoue" alors qu'elle a
+    // reussi invite l'administrateur a re-appliquer la meme sanction.
+    const outcome = buildActionOutcome({
+      successNotice: "Compte suspendu.",
+      actionError: null,
+      refreshError: "Le service est indisponible.",
+    });
+    expect(outcome.kind).toBe("refresh-error");
+    expect(outcome.kind === "refresh-error" && outcome.message).toContain(
+      "L'action a été appliquée",
+    );
+    expect(outcome.kind === "refresh-error" && outcome.message).toContain(
+      "Le service est indisponible.",
+    );
   });
 
-  it("correspond à tout quand la recherche est vide", () => {
-    expect(matchesUserQuery(makeUser(), "   ")).toBe(true);
+  it("ne montre jamais un succes quand l'action a echoue", () => {
+    const outcome = buildActionOutcome({
+      successNotice: "Compte suspendu.",
+      actionError: "Echec.",
+      refreshError: "Echec du rafraichissement.",
+    });
+    expect(outcome.kind).not.toBe("success");
+  });
+});
+describe("USER_SEARCH_LABEL", () => {
+  it("annonce la recherche par téléphone, que l'API accepte", () => {
+    // L'API filtre sur le nom, l'e-mail ET le téléphone
+    // (build_user_filters dans app/services/admin.py). Le libellé doit
+    // annoncer cette surface, sinon c'est une énumération non documentée.
+    expect(USER_SEARCH_LABEL).toContain("téléphone");
+    expect(USER_SEARCH_LABEL).toContain("e-mail");
   });
 });
