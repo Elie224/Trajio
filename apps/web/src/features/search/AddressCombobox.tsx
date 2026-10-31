@@ -12,11 +12,12 @@ type Props = {
   placeholder: string;
   value: string;
   onChange: (value: string) => void;
+  required?: boolean;
   /** Field this combobox edits, used to pick the suggestion title. */
   role: "pickup" | "dropoff";
-  recent: RecentSearch[];
-  onPickRecent: (entry: RecentSearch) => void;
-  onClearRecent: () => void;
+  recent?: RecentSearch[];
+  onPickRecent?: (entry: RecentSearch) => void;
+  onClearRecent?: () => void;
 };
 
 /**
@@ -31,8 +32,9 @@ export function AddressCombobox({
   placeholder,
   value,
   onChange,
+  required,
   role,
-  recent,
+  recent = [],
   onPickRecent,
   onClearRecent,
 }: Props) {
@@ -40,11 +42,11 @@ export function AddressCombobox({
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
 
-  const options = value.trim() === "" ? recent : [];
+  const options = value.trim() === "" && onPickRecent ? recent : [];
   const expanded = open && options.length > 0;
 
   const pick = (entry: RecentSearch) => {
-    onPickRecent(entry);
+    onPickRecent?.(entry);
     setOpen(false);
     setActiveIndex(-1);
   };
@@ -66,6 +68,7 @@ export function AddressCombobox({
         className="field"
         placeholder={placeholder}
         autoComplete="off"
+        required={required}
         role="combobox"
         aria-autocomplete="list"
         aria-expanded={expanded}
@@ -134,17 +137,19 @@ export function AddressCombobox({
             );
           })}
         </ul>
-        <button
-          type="button"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => {
-            onClearRecent();
-            setOpen(false);
-          }}
-          className="min-h-11 w-full border-t border-page-border px-4 text-left text-sm font-medium text-primary-strong hover:bg-brand-50"
-        >
-          Effacer l&apos;historique
-        </button>
+        {onClearRecent && (
+          <button
+            type="button"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => {
+              onClearRecent();
+              setOpen(false);
+            }}
+            className="min-h-11 w-full border-t border-page-border px-4 text-left text-sm font-medium text-primary-strong hover:bg-brand-50"
+          >
+            Effacer l&apos;historique
+          </button>
+        )}
       </div>
     </div>
   );

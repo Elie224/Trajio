@@ -1,12 +1,7 @@
-import Link from "next/link";
-
 import { Container } from "@/components/ui/Container";
-import { Badge } from "@/components/ui/Badge";
-import { Button, buttonClasses } from "@/components/ui/Button";
 import { Card, CardBody, CardTitle } from "@/components/ui/Card";
-import { ApiStatusCard } from "@/features/system-health/ApiStatusCard";
-import { TrajioMap } from "@/features/map/TrajioMap";
 import { AccountDeletedNotice } from "@/features/auth/AccountDeletedNotice";
+import { HomeSearchPanel } from "@/features/search/HomeSearchPanel";
 
 const HOW_IT_WORKS = [
   {
@@ -44,99 +39,8 @@ export default function Home() {
     <>
       <AccountDeletedNotice />
       <section className="border-b border-page-border bg-white">
-        <Container className="grid gap-8 py-10 lg:grid-cols-[1.05fr_1fr] lg:py-14">
-          <div>
-            <Badge tone="success">Lancement local • Phase 1 UI/UX</Badge>
-            <h1 className="mt-5 text-4xl font-bold leading-tight tracking-tight text-page-text sm:text-5xl">
-              Même direction, partageons le trajet.
-            </h1>
-            <p className="mt-4 max-w-2xl text-base leading-7 text-page-muted sm:text-lg">
-              Trajio rapproche les conducteurs ayant des places libres et les passagers qui vont
-              dans la même direction, même lorsque les points de départ et d&apos;arrivée diffèrent.
-            </p>
-
-            <form action="/search" className="surface mt-7 grid gap-3 p-4 sm:grid-cols-2 sm:p-5">
-              <div>
-                <label htmlFor="home-pickup" className="label">
-                  Départ
-                </label>
-                <input
-                  id="home-pickup"
-                  name="pickup"
-                  className="field"
-                  defaultValue="Saint-Denis"
-                  placeholder="Adresse de départ"
-                />
-              </div>
-              <div>
-                <label htmlFor="home-dropoff" className="label">
-                  Destination
-                </label>
-                <input
-                  id="home-dropoff"
-                  name="dropoff"
-                  className="field"
-                  defaultValue="Paris"
-                  placeholder="Adresse d'arrivée"
-                />
-              </div>
-              <div>
-                <label htmlFor="home-date" className="label">
-                  Date
-                </label>
-                <input id="home-date" name="date" type="date" className="field" />
-              </div>
-              <div>
-                <label htmlFor="home-time" className="label">
-                  Heure
-                </label>
-                <input id="home-time" name="time" type="time" className="field" />
-              </div>
-              <div>
-                <label htmlFor="home-passengers" className="label">
-                  Passagers
-                </label>
-                <input
-                  id="home-passengers"
-                  name="passengers"
-                  type="number"
-                  min={1}
-                  max={6}
-                  defaultValue={1}
-                  className="field"
-                />
-              </div>
-              <div className="flex items-end gap-2">
-                <Button type="submit" className="w-full">
-                  Rechercher un trajet
-                </Button>
-                <Link
-                  href="/offer"
-                  className={buttonClasses("secondary", "!w-full")}
-                >
-                  Proposer un trajet
-                </Link>
-              </div>
-            </form>
-          </div>
-
-          <div className="surface p-3">
-            <div className="mb-2 px-2 text-xs font-medium text-page-muted">
-              Carte interactive
-            </div>
-            <div className="h-[320px] sm:h-[420px]">
-              <TrajioMap
-                pickup={[2.3615, 48.9542]}
-                dropoff={[2.3553, 48.8809]}
-                route={[
-                  [2.3615, 48.9542],
-                  [2.355, 48.931],
-                  [2.352, 48.912],
-                  [2.3553, 48.8809],
-                ]}
-              />
-            </div>
-          </div>
+        <Container className="py-10 lg:py-14">
+          <HomeSearchPanel />
         </Container>
       </section>
 
@@ -165,25 +69,6 @@ export default function Home() {
                 <CardBody>{item.description}</CardBody>
               </Card>
             ))}
-          </div>
-        </Container>
-      </section>
-
-      <section className="page-section">
-        <Container>
-          <div className="grid gap-6 lg:grid-cols-2">
-            <ApiStatusCard />
-            <Card>
-              <CardTitle>État des fonctionnalités</CardTitle>
-              <CardBody>
-                <ul className="space-y-2">
-                  <li>• Recherche visuelle et carte interactive prêtes.</li>
-                  <li>• Interfaces authentification, trajets et messages en place.</li>
-                  <li>• Connexion API /health active pour vérifier l&apos;environnement.</li>
-                  <li>• Moteur de matching et réservations : intégration backend à venir.</li>
-                </ul>
-              </CardBody>
-            </Card>
           </div>
         </Container>
       </section>

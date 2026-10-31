@@ -4,12 +4,14 @@ import { SERVICE_UNAVAILABLE_MESSAGE, userFacingError } from "@/lib/errors";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ArrowUpDown, CalendarDays, ChevronUp, Car, Search, SlidersHorizontal, Star, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
 import { TrajioMap } from "@/features/map/TrajioMap";
 import { AddressCombobox } from "@/features/search/AddressCombobox";
-import { ApiError, createBooking, searchTrips, type SearchTrip } from "@/lib/api";
+import { ApiError, searchTrips, type SearchTrip } from "@/lib/api";
+import { requestBooking } from "@/features/search/request-booking";
 import {
   addRecentSearch,
   loadRecentSearches,
@@ -44,14 +46,37 @@ function formatPrice(ride: SearchTrip): string {
 }
 
 export function SearchWorkspace() {
+  const searchParams = useSearchParams();
+  // Query parameters seed the form; they are read during render so the very
+  // first paint already shows the requested trip (the page is client-rendered).
+  const initialPickup = searchParams.get("pickup")?.trim() ?? "";
+  const initialDropoff = searchParams.get("dropoff")?.trim() ?? "";
+  const initialPassengers = Number(searchParams.get("passengers") ?? "");
+  const initialDate = searchParams.get("date")?.trim() ?? "";
+  const initialTime = searchParams.get("time")?.trim() ?? "";
+  const initialPickupLat = searchParams.get("pickupLat") ?? "";
+  const initialPickupLng = searchParams.get("pickupLng") ?? "";
+  const initialDropoffLat = searchParams.get("dropoffLat") ?? "";
+  const initialDropoffLng = searchParams.get("dropoffLng") ?? "";
+
   const [state, setState] = useState<SearchState>({ status: "idle", items: [] });
   const [selectedRideId, setSelectedRideId] = useState<string | null>(null);
-  const [requestedSeats, setRequestedSeats] = useState(1);
-  const [pickup, setPickup] = useState("");
-  const [dropoff, setDropoff] = useState("");
+  const [requestedSeats, setRequestedSeats] = useState(() =>
+    Number.isNaN(initialPassengers) || initialPassengers < 1
+      ? 1
+      : Math.min(6, Math.max(1, initialPassengers)),
+  );
+  const [pickup, setPickup] = useState(initialPickup);
+  const [dropoff, setDropoff] = useState(initialDropoff);
   const [recent, setRecent] = useState<RecentSearch[]>([]);
   const [sheetExpanded, setSheetExpanded] = useState(false);
   const dateRef = useRef<HTMLInputElement>(null);
+  const timeRef = useRef<HTMLInputElement>(null);
+  const pickupLatRef = useRef<HTMLInputElement>(null);
+  const pickupLngRef = useRef<HTMLInputElement>(null);
+  const dropoffLatRef = useRef<HTMLInputElement>(null);
+  const dropoffLngRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   // Native date inputs follow the browser language (mm/dd/yyyy in an English
   // browser), so the chosen date is also spelled out in French below the field.
   const [dateLabel, setDateLabel] = useState("");
@@ -66,16 +91,41 @@ export function SearchWorkspace() {
     );
   };
 
-  // Default date = today (local), set after mount: the page is prerendered.
+  // Default date = today (local). The date/time and coordinate fields are
+  // uncontrolled, so their initial value is written directly on the DOM node.
   useEffect(() => {
     const input = dateRef.current;
-    if (!input || input.value) return;
-    const now = new Date();
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-    input.value = today;
-    input.min = today;
-    updateDateLabel(today);
+    if (input) {
+      const now = new Date();
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      input.min = today;
+      if (!input.value) {
+        input.value = today;
+        updateDateLabel(today);
+      }
+    }
+    if (timeRef.current && initialTime) timeRef.current.value = initialTime;
+    if (pickupLatRef.current) pickupLatRef.current.value = initialPickupLat;
+    if (pickupLngRef.current) pickupLngRef.current.value = initialPickupLng;
+    if (dropoffLatRef.current) dropoffLatRef.current.value = initialDropoffLat;
+    if (dropoffLngRef.current) dropoffLngRef.current.value = initialDropoffLng;
+    if (dateRef.current && initialDate) {
+      dateRef.current.value = initialDate;
+      updateDateLabel(initialDate);
+    }
+    // The URL values are only read on the first render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // A trip was requested through the URL: run the search once the form is ready.
+  const autoSearchRef = useRef(false);
+  useEffect(() => {
+    if (autoSearchRef.current) return;
+    if (!initialPickup && !initialDropoff) return;
+    if (pickup !== initialPickup || dropoff !== initialDropoff) return;
+    autoSearchRef.current = true;
+    formRef.current?.requestSubmit();
+  }, [pickup, dropoff, initialPickup, initialDropoff]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is browser-only
@@ -189,6 +239,7 @@ export function SearchWorkspace() {
 
         <form
           id="search-form"
+          ref={formRef}
           className="grid gap-4"
           onSubmit={async (event) => {
             event.preventDefault();
@@ -325,7 +376,7 @@ export function SearchWorkspace() {
                   <label htmlFor="search-time" className="label">
                     Heure la plus tôt
                   </label>
-                  <input id="search-time" name="time" type="time" className="field" />
+                  <input ref={timeRef} id="search-time" name="time" type="time" className="field" />
                 </div>
                 <div>
                   <label htmlFor="search-price" className="label">
@@ -339,25 +390,25 @@ export function SearchWorkspace() {
                   <label htmlFor="search-pickup-lat" className="label">
                     Latitude départ
                   </label>
-                  <input id="search-pickup-lat" name="pickupLat" type="number" step="0.000001" min={-90} max={90} className="field" placeholder="48.856614" />
+                  <input ref={pickupLatRef} id="search-pickup-lat" name="pickupLat" type="number" step="0.000001" min={-90} max={90} className="field" placeholder="48.856614" />
                 </div>
                 <div>
                   <label htmlFor="search-pickup-lng" className="label">
                     Longitude départ
                   </label>
-                  <input id="search-pickup-lng" name="pickupLng" type="number" step="0.000001" min={-180} max={180} className="field" placeholder="2.352222" />
+                  <input ref={pickupLngRef} id="search-pickup-lng" name="pickupLng" type="number" step="0.000001" min={-180} max={180} className="field" placeholder="2.352222" />
                 </div>
                 <div>
                   <label htmlFor="search-dropoff-lat" className="label">
                     Latitude arrivée
                   </label>
-                  <input id="search-dropoff-lat" name="dropoffLat" type="number" step="0.000001" min={-90} max={90} className="field" placeholder="48.856614" />
+                  <input ref={dropoffLatRef} id="search-dropoff-lat" name="dropoffLat" type="number" step="0.000001" min={-90} max={90} className="field" placeholder="48.856614" />
                 </div>
                 <div>
                   <label htmlFor="search-dropoff-lng" className="label">
                     Longitude arrivée
                   </label>
-                  <input id="search-dropoff-lng" name="dropoffLng" type="number" step="0.000001" min={-180} max={180} className="field" placeholder="2.352222" />
+                  <input ref={dropoffLngRef} id="search-dropoff-lng" name="dropoffLng" type="number" step="0.000001" min={-180} max={180} className="field" placeholder="2.352222" />
                 </div>
               </div>
             </div>
@@ -500,23 +551,12 @@ export function SearchWorkspace() {
                       disabled={booking?.status === "submitting"}
                       onClick={async () => {
                         setBookingState({ status: "submitting", message: null, tripId: ride.id });
-                        try {
-                          await createBooking({ tripId: ride.id, requestedSeats });
-                          setBookingState({
-                            status: "success",
-                            message: "Réservation envoyée au conducteur.",
-                            tripId: ride.id,
-                          });
-                        } catch (unknownError: unknown) {
-                          setBookingState({
-                            status: "error",
-                            message:
-                              unknownError instanceof Error
-                                ? unknownError.message
-                                : "Impossible de créer la réservation.",
-                            tripId: ride.id,
-                          });
-                        }
+                        const result = await requestBooking(ride.id, requestedSeats);
+                        setBookingState({
+                          status: result.status,
+                          message: result.message,
+                          tripId: ride.id,
+                        });
                       }}
                     >
                       {booking?.status === "submitting" ? "Réservation…" : "Réserver ce trajet"}

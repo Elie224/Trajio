@@ -15,6 +15,8 @@ type TrajioMapProps = {
   dropoff?: Coordinate;
   route?: Coordinate[];
   className?: string;
+  /** When set, a click on the map reports WGS84 [lng, lat]. */
+  onMapClick?: (lngLat: [number, number]) => void;
 };
 
 /** Pin with a pulsing halo (see .map-pin in globals.css; static if reduced motion). */
@@ -27,10 +29,104 @@ function createMarker(color: string, label: string) {
   return marker;
 }
 
-export function TrajioMap({ pickup, dropoff, route, className = "" }: TrajioMapProps) {
+/** Paints markers, the route line and the camera position on the given map. */
+function paintOverlay(
+  map: maplibregl.Map,
+  markers: maplibregl.Marker[],
+  pickup?: Coordinate,
+  dropoff?: Coordinate,
+  route?: Coordinate[],
+) {
+  const pickupCoordinate = pickup ? ([pickup[0], pickup[1]] as Point) : undefined;
+  const dropoffCoordinate = dropoff ? ([dropoff[0], dropoff[1]] as Point) : undefined;
+
+  markers.forEach((marker) => marker.remove());
+  markers.length = 0;
+
+  if (pickupCoordinate) {
+    markers.push(
+      new maplibregl.Marker({ element: createMarker("#059669", "Départ") })
+        .setLngLat(pickupCoordinate)
+        .addTo(map),
+    );
+  }
+  if (dropoffCoordinate) {
+    markers.push(
+      new maplibregl.Marker({ element: createMarker("#047857", "Arrivée") })
+        .setLngLat(dropoffCoordinate)
+        .addTo(map),
+    );
+  }
+
+  const sourceId = "selected-route";
+  const layerId = "selected-route-layer";
+  const routeCoordinates = (route ?? []).map(([lng, lat]) => [lng, lat] as Point);
+
+  if (!map.getSource(sourceId)) {
+    map.addSource(sourceId, {
+      type: "geojson",
+      data: {
+        type: "Feature",
+        properties: {},
+        geometry: {
+          type: "LineString",
+          coordinates: routeCoordinates,
+        },
+      },
+    });
+  }
+
+  const source = map.getSource(sourceId) as maplibregl.GeoJSONSource;
+  source.setData({
+    type: "Feature",
+    properties: {},
+    geometry: {
+      type: "LineString",
+      coordinates: routeCoordinates,
+    },
+  });
+
+  if (!map.getLayer(layerId)) {
+    map.addLayer({
+      id: layerId,
+      type: "line",
+      source: sourceId,
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: {
+        "line-color": "#059669",
+        "line-width": 5,
+        "line-opacity": 0.95,
+      },
+    });
+  }
+
+  const pointCoordinates = [pickupCoordinate, dropoffCoordinate].filter(
+    (coordinate): coordinate is Point => Boolean(coordinate),
+  );
+  const boundsInput = routeCoordinates.length > 1 ? routeCoordinates : pointCoordinates;
+  if (boundsInput.length > 1) {
+    const bounds = new LngLatBounds(boundsInput[0], boundsInput[0]);
+    boundsInput.slice(1).forEach((coordinate) => bounds.extend(coordinate));
+    map.fitBounds(bounds, { padding: 50, maxZoom: 13, duration: 700 });
+  } else if (pickupCoordinate) {
+    map.easeTo({ center: pickupCoordinate, zoom: 12, duration: 600 });
+  }
+}
+
+export function TrajioMap({ pickup, dropoff, route, className = "", onMapClick }: TrajioMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markerRef = useRef<maplibregl.Marker[]>([]);
+  const onMapClickRef = useRef(onMapClick);
+  const overlayRef = useRef<{ pickup?: Coordinate; dropoff?: Coordinate; route?: Coordinate[] }>({});
+
+  useEffect(() => {
+    onMapClickRef.current = onMapClick;
+  }, [onMapClick]);
+
+  useEffect(() => {
+    overlayRef.current = { pickup, dropoff, route };
+  }, [pickup, dropoff, route]);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -48,9 +144,22 @@ export function TrajioMap({ pickup, dropoff, route, className = "" }: TrajioMapP
     });
 
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
+    const handleClick = (event: maplibregl.MapMouseEvent) => {
+      onMapClickRef.current?.([
+        Number(event.lngLat.lng.toFixed(6)),
+        Number(event.lngLat.lat.toFixed(6)),
+      ]);
+    };
+    map.on("click", handleClick);
     mapRef.current = map;
+    // Paint the initial overlay as soon as the style is ready.
+    map.once("load", () => {
+      const { pickup, dropoff, route } = overlayRef.current;
+      paintOverlay(map, markerRef.current, pickup, dropoff, route);
+    });
 
     return () => {
+      map.off("click", handleClick);
       map.remove();
       mapRef.current = null;
     };
@@ -60,89 +169,16 @@ export function TrajioMap({ pickup, dropoff, route, className = "" }: TrajioMapP
     const map = mapRef.current;
     if (!map) return;
 
-    const applyOverlay = () => {
-      const pickupCoordinate = pickup ? ([pickup[0], pickup[1]] as Point) : undefined;
-      const dropoffCoordinate = dropoff ? ([dropoff[0], dropoff[1]] as Point) : undefined;
-
-      markerRef.current.forEach((marker) => marker.remove());
-      markerRef.current = [];
-
-      if (pickupCoordinate) {
-        markerRef.current.push(
-          new maplibregl.Marker({ element: createMarker("#059669", "Départ") })
-            .setLngLat(pickupCoordinate)
-            .addTo(map),
-        );
-      }
-      if (dropoffCoordinate) {
-        markerRef.current.push(
-          new maplibregl.Marker({ element: createMarker("#047857", "Arrivée") })
-            .setLngLat(dropoffCoordinate)
-            .addTo(map),
-        );
-      }
-
-      const sourceId = "selected-route";
-      const layerId = "selected-route-layer";
-      const routeCoordinates = (route ?? []).map(([lng, lat]) => [lng, lat] as Point);
-
-      if (!map.getSource(sourceId)) {
-        map.addSource(sourceId, {
-          type: "geojson",
-          data: {
-            type: "Feature",
-            properties: {},
-            geometry: {
-              type: "LineString",
-              coordinates: routeCoordinates,
-            },
-          },
-        });
-      }
-
-      const source = map.getSource(sourceId) as maplibregl.GeoJSONSource;
-      source.setData({
-        type: "Feature",
-        properties: {},
-        geometry: {
-          type: "LineString",
-          coordinates: routeCoordinates,
-        },
-      });
-
-      if (!map.getLayer(layerId)) {
-        map.addLayer({
-          id: layerId,
-          type: "line",
-          source: sourceId,
-          layout: { "line-cap": "round", "line-join": "round" },
-          paint: {
-            "line-color": "#059669",
-            "line-width": 5,
-            "line-opacity": 0.95,
-          },
-        });
-      }
-
-      const pointCoordinates = [pickupCoordinate, dropoffCoordinate].filter(
-        (coordinate): coordinate is Point => Boolean(coordinate),
-      );
-      const boundsInput = routeCoordinates.length > 1 ? routeCoordinates : pointCoordinates;
-      if (boundsInput.length > 1) {
-        const bounds = new LngLatBounds(boundsInput[0], boundsInput[0]);
-        boundsInput.slice(1).forEach((coordinate) => bounds.extend(coordinate));
-        map.fitBounds(bounds, { padding: 50, maxZoom: 13, duration: 700 });
-      } else if (pickupCoordinate) {
-        map.easeTo({ center: pickupCoordinate, zoom: 12, duration: 600 });
-      }
-    };
-
     if (!map.isStyleLoaded()) {
-      map.once("load", applyOverlay);
+      map.once("load", () => {
+        paintOverlay(map, markerRef.current, pickup, dropoff, route);
+      });
       return;
     }
-    applyOverlay();
+    paintOverlay(map, markerRef.current, pickup, dropoff, route);
   }, [pickup, dropoff, route]);
 
-  return <div ref={containerRef} className={"map-shell h-full w-full " + className} />;
+  const shellClass = "map-shell h-full w-full " + (onMapClick ? "cursor-crosshair " : "") + className;
+
+  return <div ref={containerRef} className={shellClass} />;
 }

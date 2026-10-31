@@ -1,82 +1,86 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 
-import { Badge } from "@/components/ui/Badge";
-import { Button, buttonClasses } from "@/components/ui/Button";
+import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardTitle } from "@/components/ui/Card";
 import { Container } from "@/components/ui/Container";
+import { ServiceError } from "@/components/ui/ServiceError";
+import { SessionStatus } from "@/features/auth/SessionStatus";
+import { useSession } from "@/features/auth/useSession";
 import { TrajioMap } from "@/features/map/TrajioMap";
+import { AddressCombobox } from "@/features/search/AddressCombobox";
+import { createTrip, fetchVehicles, type Vehicle } from "@/lib/api";
+import { userFacingError } from "@/lib/errors";
 import {
-  createTrip,
-  fetchCurrentUser,
-  fetchVehicles,
-  isUnauthenticated,
-  type UserProfile,
-  type Vehicle,
-} from "@/lib/api";
-import { loginHref } from "@/lib/safe-redirect";
+  loadRecentSearches,
+  saveRecentSearches,
+  type RecentSearch,
+} from "@/lib/recent-searches";
 
-type State =
-  | { status: "loading" }
-  | { status: "anonymous" }
-  | { status: "ready"; user: UserProfile; vehicles: Vehicle[] }
-  | { status: "error"; message: string };
+type Point = [number, number];
+type PlaceTarget = "origin" | "destination";
 
 export function OfferTripForm() {
-  const [state, setState] = useState<State>({ status: "loading" });
-  const pathname = usePathname();
+  const session = useSession();
+  const [vehicles, setVehicles] = useState<Vehicle[] | null>(null);
+  const [vehiclesError, setVehiclesError] = useState<string | null>(null);
+  const [vehiclesEpoch, setVehiclesEpoch] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [originLat, setOriginLat] = useState("48.9542");
-  const [originLng, setOriginLng] = useState("2.3615");
-  const [destinationLat, setDestinationLat] = useState("48.8809");
-  const [destinationLng, setDestinationLng] = useState("2.3553");
+  const [originLabel, setOriginLabel] = useState("");
+  const [destinationLabel, setDestinationLabel] = useState("");
+  const [originPoint, setOriginPoint] = useState<Point | undefined>();
+  const [destinationPoint, setDestinationPoint] = useState<Point | undefined>();
+  const [placing, setPlacing] = useState<PlaceTarget>("origin");
+  const [recent, setRecent] = useState<RecentSearch[]>([]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is browser-only
+    setRecent(loadRecentSearches());
+  }, []);
+
+  useEffect(() => {
+    if (session.status !== "authenticated") return;
     let cancelled = false;
-    Promise.all([fetchCurrentUser(), fetchVehicles()])
-      .then(([user, vehicles]) => {
-        if (!cancelled) {
-          setState({ status: "ready", user, vehicles });
-        }
+    fetchVehicles()
+      .then((items) => {
+        if (!cancelled) setVehicles(items);
       })
       .catch((unknownError: unknown) => {
-        if (cancelled) return;
-        if (isUnauthenticated(unknownError)) {
-          setState({ status: "anonymous" });
-          return;
+        if (!cancelled) {
+          setVehiclesError(userFacingError(unknownError, "Impossible de charger vos véhicules."));
         }
-        setState({
-          status: "error",
-          message: unknownError instanceof Error ? unknownError.message : "Erreur inattendue",
-        });
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [session.status, vehiclesEpoch]);
 
-  const mapPickup = useMemo<[number, number] | undefined>(() => {
-    const lat = Number(originLat);
-    const lng = Number(originLng);
-    if (Number.isFinite(lat) && Number.isFinite(lng)) return [lng, lat];
-    return undefined;
-  }, [originLat, originLng]);
+  const mapRoute = originPoint && destinationPoint ? [originPoint, destinationPoint] : undefined;
 
-  const mapDropoff = useMemo<[number, number] | undefined>(() => {
-    const lat = Number(destinationLat);
-    const lng = Number(destinationLng);
-    if (Number.isFinite(lat) && Number.isFinite(lng)) return [lng, lat];
-    return undefined;
-  }, [destinationLat, destinationLng]);
+  const detourOptions = useMemo(
+    () => [
+      { value: "0.1", label: "10 %" },
+      { value: "0.2", label: "20 %" },
+      { value: "0.3", label: "30 %" },
+      { value: "0.5", label: "50 %" },
+    ],
+    [],
+  );
 
-  const mapRoute = mapPickup && mapDropoff ? [mapPickup, mapDropoff] : undefined;
+  if (session.status !== "authenticated") {
+    return (
+      <SessionStatus
+        session={session}
+        loadingLabel="Chargement..."
+        anonymousBody="Vous devez être connecté pour proposer un trajet."
+      />
+    );
+  }
 
-  if (state.status === "loading") {
+  if (vehicles === null && !vehiclesError) {
     return (
       <section className="page-section">
         <Container>Chargement...</Container>
@@ -84,51 +88,38 @@ export function OfferTripForm() {
     );
   }
 
-  if (state.status === "anonymous") {
+  if (vehiclesError) {
     return (
       <section className="page-section">
-        <Container className="max-w-3xl">
+        <Container className="max-w-xl">
           <Card>
-            <CardTitle>Connexion requise</CardTitle>
-            <CardBody>Vous devez être connecté pour proposer un trajet.</CardBody>
-            <div className="mt-4">
-              <Link
-                href={loginHref(pathname)}
-                className={buttonClasses("primary")}
-              >
-                Se connecter
-              </Link>
-            </div>
+            <CardTitle>Erreur</CardTitle>
+            <ServiceError
+              className="mt-3"
+              message={vehiclesError}
+              onRetry={() => {
+                setVehiclesError(null);
+                setVehicles(null);
+                setVehiclesEpoch((value) => value + 1);
+              }}
+            />
           </Card>
         </Container>
       </section>
     );
   }
 
-  if (state.status === "error") {
-    return (
-      <section className="page-section">
-        <Container className="max-w-3xl">
-          <Card>
-            <CardTitle>Erreur</CardTitle>
-            <CardBody>{state.message}</CardBody>
-          </Card>
-        </Container>
-      </section>
-    );
-  }
+  const activeVehicles = vehicles ?? [];
 
   return (
     <section className="page-section">
       <Container className="max-w-6xl">
-        <div className="mb-6 flex items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold text-page-text sm:text-3xl">Proposer un trajet</h1>
-            <p className="mt-2 text-sm text-page-muted">
-              Publication réelle vers l&apos;API. Assurez-vous d&apos;avoir au moins un véhicule actif.
-            </p>
-          </div>
-          <Badge tone="success">Publication active</Badge>
+        <div className="mb-6">
+          <h1 className="text-2xl font-semibold text-page-text sm:text-3xl">Proposer un trajet</h1>
+          <p className="mt-2 text-sm text-page-muted">
+            Indiquez votre départ et votre arrivée, puis placez-les sur la carte. Un véhicule actif
+            est nécessaire pour publier.
+          </p>
         </div>
 
         <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">
@@ -139,6 +130,10 @@ export function OfferTripForm() {
                 event.preventDefault();
                 setError(null);
                 setMessage(null);
+                if (!originPoint || !destinationPoint) {
+                  setError("Placez le départ et l'arrivée sur la carte.");
+                  return;
+                }
                 setIsSubmitting(true);
                 const formData = new FormData(event.currentTarget);
                 const date = String(formData.get("date") ?? "");
@@ -150,12 +145,12 @@ export function OfferTripForm() {
                 try {
                   await createTrip({
                     vehicleId,
-                    originLabel: String(formData.get("origin_label") ?? ""),
-                    destinationLabel: String(formData.get("destination_label") ?? ""),
-                    originLat: Number(formData.get("origin_lat") ?? "0"),
-                    originLng: Number(formData.get("origin_lng") ?? "0"),
-                    destinationLat: Number(formData.get("destination_lat") ?? "0"),
-                    destinationLng: Number(formData.get("destination_lng") ?? "0"),
+                    originLabel: originLabel.trim(),
+                    destinationLabel: destinationLabel.trim(),
+                    originLat: originPoint[1],
+                    originLng: originPoint[0],
+                    destinationLat: destinationPoint[1],
+                    destinationLng: destinationPoint[0],
                     departureTime: new Date(`${date}T${time}:00`).toISOString(),
                     seatsTotal: Number(formData.get("seats_total") ?? 1),
                     isPaid,
@@ -166,41 +161,56 @@ export function OfferTripForm() {
                   });
                   setMessage("Trajet publié avec succès.");
                   event.currentTarget.reset();
+                  setOriginLabel("");
+                  setDestinationLabel("");
+                  setOriginPoint(undefined);
+                  setDestinationPoint(undefined);
+                  setPlacing("origin");
                 } catch (unknownError: unknown) {
-                  setError(
-                    unknownError instanceof Error
-                      ? unknownError.message
-                      : "Impossible de publier le trajet.",
-                  );
+                  setError(userFacingError(unknownError, "Impossible de publier le trajet."));
                 } finally {
                   setIsSubmitting(false);
                 }
               }}
             >
-              <div>
-                <label htmlFor="offer-origin-label" className="label">
-                  Adresse de départ
-                </label>
-                <input
-                  id="offer-origin-label"
-                  name="origin_label"
-                  className="field"
-                  placeholder="Ex. Saint-Denis Université"
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="offer-destination-label" className="label">
-                  Adresse de destination
-                </label>
-                <input
-                  id="offer-destination-label"
-                  name="destination_label"
-                  className="field"
-                  placeholder="Ex. Paris Gare du Nord"
-                  required
-                />
-              </div>
+              <AddressCombobox
+                id="offer-origin-label"
+                name="origin_label"
+                label="Adresse de départ"
+                placeholder="Ex. Saint-Denis Université"
+                required
+                role="pickup"
+                value={originLabel}
+                onChange={setOriginLabel}
+                recent={recent}
+                onPickRecent={(entry) => {
+                  setOriginLabel(entry.pickup);
+                  setDestinationLabel(entry.dropoff);
+                }}
+                onClearRecent={() => {
+                  setRecent([]);
+                  saveRecentSearches([]);
+                }}
+              />
+              <AddressCombobox
+                id="offer-destination-label"
+                name="destination_label"
+                label="Adresse de destination"
+                placeholder="Ex. Paris Gare du Nord"
+                required
+                role="dropoff"
+                value={destinationLabel}
+                onChange={setDestinationLabel}
+                recent={recent}
+                onPickRecent={(entry) => {
+                  setOriginLabel(entry.pickup);
+                  setDestinationLabel(entry.dropoff);
+                }}
+                onClearRecent={() => {
+                  setRecent([]);
+                  saveRecentSearches([]);
+                }}
+              />
               <div>
                 <label htmlFor="offer-date" className="label">
                   Date
@@ -237,97 +247,46 @@ export function OfferTripForm() {
                   name="vehicle_id"
                   className="field"
                   required
-                  defaultValue={state.vehicles[0]?.id ?? ""}
+                  defaultValue={activeVehicles[0]?.id ?? ""}
                 >
-                  {state.vehicles.map((vehicle) => (
+                  {activeVehicles.map((vehicle) => (
                     <option key={vehicle.id} value={vehicle.id}>
                       {vehicle.brand} {vehicle.model} · {vehicle.plate}
                     </option>
                   ))}
                 </select>
               </div>
-              <div>
-                <label htmlFor="offer-origin-lat" className="label">
-                  Latitude départ
-                </label>
-                <input
-                  id="offer-origin-lat"
-                  name="origin_lat"
-                  className="field"
-                  value={originLat}
-                  onChange={(event) => setOriginLat(event.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="offer-origin-lng" className="label">
-                  Longitude départ
-                </label>
-                <input
-                  id="offer-origin-lng"
-                  name="origin_lng"
-                  className="field"
-                  value={originLng}
-                  onChange={(event) => setOriginLng(event.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="offer-destination-lat" className="label">
-                  Latitude destination
-                </label>
-                <input
-                  id="offer-destination-lat"
-                  name="destination_lat"
-                  className="field"
-                  value={destinationLat}
-                  onChange={(event) => setDestinationLat(event.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="offer-destination-lng" className="label">
-                  Longitude destination
-                </label>
-                <input
-                  id="offer-destination-lng"
-                  name="destination_lng"
-                  className="field"
-                  value={destinationLng}
-                  onChange={(event) => setDestinationLng(event.target.value)}
-                  required
-                />
-              </div>
-              <div>
+              <div className="sm:col-span-2">
                 <label htmlFor="offer-detour" className="label">
-                  Détour max (0 à 1)
+                  Détour maximum
                 </label>
-                <input
-                  id="offer-detour"
-                  name="detour_ratio"
-                  className="field"
-                  type="number"
-                  min={0}
-                  max={1}
-                  step="0.01"
-                  defaultValue={0.3}
-                  required
-                />
+                <select id="offer-detour" name="detour_ratio" className="field" defaultValue="0.3" required>
+                  {detourOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <div className="grid grid-cols-[auto_1fr] items-end gap-3">
-                <label className="mb-0 inline-flex items-center gap-2 text-sm font-medium text-page-text">
+              <div className="grid grid-cols-[auto_1fr] items-end gap-3 sm:col-span-2">
+                <label className="mb-0 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-page-text">
                   <input type="checkbox" name="is_paid" />
                   Trajet payant
                 </label>
-                <input
-                  name="price_euros"
-                  className="field"
-                  type="number"
-                  min={0}
-                  step="0.1"
-                  defaultValue={8}
-                  placeholder="Prix / passager (€)"
-                />
+                <div>
+                  <label htmlFor="offer-price" className="label">
+                    Prix par passager (€)
+                  </label>
+                  <input
+                    id="offer-price"
+                    name="price_euros"
+                    className="field"
+                    type="number"
+                    min={0}
+                    step="0.1"
+                    defaultValue={8}
+                  />
+                </div>
               </div>
               <div className="sm:col-span-2">
                 <label htmlFor="offer-driver-preferences" className="label">
@@ -351,18 +310,26 @@ export function OfferTripForm() {
                   placeholder="Point de rendez-vous exact, contraintes..."
                 />
               </div>
-              {error && <p className="sm:col-span-2 text-sm text-danger">{error}</p>}
-              {message && <p className="sm:col-span-2 text-sm text-emerald-700">{message}</p>}
+              {error && (
+                <p role="alert" className="sm:col-span-2 text-sm text-danger">
+                  {error}
+                </p>
+              )}
+              {message && (
+                <p role="status" className="sm:col-span-2 text-sm text-emerald-700">
+                  {message}
+                </p>
+              )}
               <div className="sm:col-span-2">
-                <Button type="submit" disabled={isSubmitting || state.vehicles.length === 0} className="w-full">
+                <Button type="submit" disabled={isSubmitting || activeVehicles.length === 0} className="w-full">
                   {isSubmitting ? "Publication..." : "Publier le trajet"}
                 </Button>
               </div>
             </form>
-            {state.vehicles.length === 0 && (
+            {activeVehicles.length === 0 && (
               <CardBody>
                 <span className="text-amber-700">
-                  Aucun véhicule actif : ajoutez un véhicule depuis &quot;Mes trajets&quot; avant de
+                  Aucun véhicule actif : ajoutez un véhicule depuis « Mes trajets » avant de
                   publier.
                 </span>
               </CardBody>
@@ -370,10 +337,52 @@ export function OfferTripForm() {
           </Card>
 
           <Card>
-            <CardTitle>Prévisualisation de l&apos;itinéraire</CardTitle>
-            <CardBody>La carte met à jour les points de départ et d&apos;arrivée saisis.</CardBody>
+            <CardTitle>Itinéraire</CardTitle>
+            <CardBody>
+              Cliquez sur la carte pour placer {placing === "origin" ? "le départ" : "l'arrivée"}.
+            </CardBody>
+            <div className="mt-3 flex gap-1">
+              <button
+                type="button"
+                aria-pressed={placing === "origin"}
+                onClick={() => setPlacing("origin")}
+                className={
+                  "min-h-11 rounded-full px-3 text-sm font-medium " +
+                  (placing === "origin" ? "bg-primary-strong text-white" : "text-page-muted hover:text-page-text")
+                }
+              >
+                Départ
+              </button>
+              <button
+                type="button"
+                aria-pressed={placing === "destination"}
+                onClick={() => setPlacing("destination")}
+                className={
+                  "min-h-11 rounded-full px-3 text-sm font-medium " +
+                  (placing === "destination"
+                    ? "bg-primary-strong text-white"
+                    : "text-page-muted hover:text-page-text")
+                }
+              >
+                Arrivée
+              </button>
+            </div>
             <div className="mt-4 h-[460px]">
-              <TrajioMap pickup={mapPickup} dropoff={mapDropoff} route={mapRoute} />
+              <TrajioMap
+                pickup={originPoint}
+                dropoff={destinationPoint}
+                route={mapRoute}
+                onMapClick={(lngLat) => {
+                  if (placing === "origin") {
+                    setOriginPoint(lngLat);
+                    if (!originLabel.trim()) setOriginLabel("Point de départ sur la carte");
+                    setPlacing("destination");
+                  } else {
+                    setDestinationPoint(lngLat);
+                    if (!destinationLabel.trim()) setDestinationLabel("Point d'arrivée sur la carte");
+                  }
+                }}
+              />
             </div>
           </Card>
         </div>
