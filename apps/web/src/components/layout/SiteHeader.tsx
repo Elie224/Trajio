@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { CarFront, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 
 import { buttonClasses } from "@/components/ui/Button";
 import { Container } from "@/components/ui/Container";
@@ -20,6 +21,8 @@ const NAV_ITEMS = [
   { href: "/messages", label: "Messages" },
 ] as const;
 const ACCOUNT_ITEM = { href: "/account", label: "Mon compte" } as const;
+/** Only shown to administrators; the bottom tab bar stays passenger-oriented. */
+const ADMIN_ITEM = { href: "/admin", label: "Admin" } as const;
 
 function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(href + "/");
@@ -34,19 +37,29 @@ export function SiteHeader() {
   const pathname = usePathname();
   const session = useSession();
   const isLoggedIn = session.status === "authenticated";
-  const navItems = isLoggedIn ? [...NAV_ITEMS, ACCOUNT_ITEM] : NAV_ITEMS;
+  const isAdmin = isLoggedIn && session.user.role === "admin";
+  const navItems = isAdmin
+    ? [...NAV_ITEMS, ACCOUNT_ITEM, ADMIN_ITEM]
+    : isLoggedIn
+      ? [...NAV_ITEMS, ACCOUNT_ITEM]
+      : NAV_ITEMS;
   const closeMenu = () => setIsMenuOpen(false);
 
   return (
     <header className="sticky top-0 z-30 border-b border-page-border bg-white/95 backdrop-blur">
       <Container className="flex h-16 items-center justify-between gap-4">
         <Link href="/" className="flex min-h-11 shrink-0 items-center gap-2.5" aria-label={`${env.appName}, accueil`}>
-          <span className="grid h-9 w-9 place-items-center rounded-[var(--radius-control)] bg-primary-strong text-white">
-            <CarFront className="h-5 w-5" aria-hidden="true" />
-          </span>
-          <span className="flex flex-col leading-tight">
-            <span className="font-heading text-base font-semibold text-page-text">{env.appName}</span>
-            <span className="text-sm text-page-muted">Covoiturage de proximité</span>
+          <Image
+            src="/trajio-logo.webp"
+            alt={env.appName}
+            width={1040}
+            height={580}
+            sizes="108px"
+            loading="eager"
+            className="h-auto w-[108px] shrink-0"
+          />
+          <span className="hidden text-sm text-page-muted sm:inline lg:hidden xl:inline">
+            Covoiturage de proximité
           </span>
         </Link>
 

@@ -111,6 +111,13 @@ class Settings(BaseSettings):
     # Decimals kept on coordinates exposed by the public search (2 ~ 1 km).
     SEARCH_COORDINATE_DECIMALS: int = 2
 
+    # -- Administration ----------------------------------------------------
+    # Email of the account promoted to administrator at startup. Empty means
+    # no bootstrap: the promotion is then a manual database operation.
+    ADMIN_BOOTSTRAP_EMAIL: str = ""
+    # Set to false to switch the startup promotion off entirely.
+    ADMIN_BOOTSTRAP_ENABLED: bool = True
+
     # -- Derived values ---------------------------------------------------
     @property
     def cors_origin_list(self) -> list[str]:

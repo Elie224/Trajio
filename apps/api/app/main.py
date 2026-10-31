@@ -17,10 +17,12 @@ from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.logging import configure_logging
 from app.core.rate_limit import limiter, rate_limit_exceeded_handler
+from app.services.admin import bootstrap_admin
 from app.services.purge import purge_stale_refresh_tokens
 
 logger = logging.getLogger("app.startup")
 db_logger = logging.getLogger("app.database")
+admin_logger = logging.getLogger("app.admin")
 
 SERVICE_UNAVAILABLE_DETAIL = "Service indisponible"
 DB_RETRY_AFTER_SECONDS = 5
@@ -54,7 +56,36 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     warn_about_insecure_defaults()
     if not settings.is_development:
         await purge_stale_refresh_tokens()
+    await bootstrap_admin_account()
     yield
+
+
+async def bootstrap_admin_account() -> None:
+    """Promote the configured account to administrator, once, at startup.
+
+    Without an administrator the dashboard is unreachable, and the role is
+    never granted through the API. The promotion is idempotent and only ever
+    promotes: it never demotes an existing administrator.
+    """
+    email = settings.ADMIN_BOOTSTRAP_EMAIL.strip()
+    if not email or not settings.ADMIN_BOOTSTRAP_ENABLED:
+        return
+
+    from app.db.session import async_session_scope
+
+    try:
+        async with async_session_scope() as session:
+            promoted = await bootstrap_admin(session, email)
+    except Exception:
+        admin_logger.exception("admin bootstrap skipped (database unavailable)")
+        return
+
+    if promoted is None:
+        admin_logger.warning(
+            "admin bootstrap skipped: no active account for %s", email
+        )
+    else:
+        admin_logger.info("administrator account ready: %s", email)
 
 
 def warn_about_insecure_defaults() -> None:

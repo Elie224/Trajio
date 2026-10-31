@@ -573,3 +573,119 @@ export async function blockUser(userId: string): Promise<unknown> {
     body: JSON.stringify({ user_id: userId }),
   });
 }
+
+/* -------------------------------------------------------------------------
+ * Administration (role `admin`).
+ * The API answers 403 to a non-admin; the dashboard hides itself in that case.
+ * ---------------------------------------------------------------------- */
+
+export type AdminStats = {
+  users_total: number;
+  users_active: number;
+  users_pending: number;
+  drivers_total: number;
+  trips_total: number;
+  trips_scheduled: number;
+  bookings_total: number;
+  bookings_pending: number;
+  open_reports: number;
+  reviews_total: number;
+  /** Null until at least one review exists. */
+  average_rating: number | null;
+};
+
+export type AdminUser = {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  phone: string | null;
+  role: "passenger" | "driver" | "admin";
+  status: "pending" | "active" | "suspended" | "banned";
+  email_verified_at: string | null;
+  phone_verified_at: string | null;
+  license_verified_at: string | null;
+  id_document_status: "pending" | "verified" | "rejected";
+  created_at: string;
+};
+
+export type AdminReportStatus = "open" | "reviewing" | "resolved" | "dismissed";
+
+export type AdminReport = {
+  id: string;
+  reporter_id: string;
+  reported_user_id: string;
+  booking_id: string | null;
+  reason: ReportReason;
+  details: string | null;
+  status: AdminReportStatus;
+  created_at: string;
+  updated_at: string;
+};
+
+export async function fetchAdminStats(signal?: AbortSignal): Promise<AdminStats> {
+  return fetchJson<AdminStats>("/api/v1/admin/stats", { signal });
+}
+
+export async function fetchAdminUsers(params: {
+  status?: UserProfile["status"];
+  role?: UserProfile["role"];
+  query?: string;
+  limit?: number;
+  offset?: number;
+} = {}): Promise<{ items: AdminUser[]; total: number }> {
+  const query = new URLSearchParams();
+  if (params.status) query.set("status", params.status);
+  if (params.role) query.set("role", params.role);
+  if (params.query) query.set("query", params.query);
+  if (params.limit !== undefined) query.set("limit", String(params.limit));
+  if (params.offset !== undefined) query.set("offset", String(params.offset));
+  const suffix = query.toString() ? "?" + query.toString() : "";
+  return fetchJson<{ items: AdminUser[]; total: number }>("/api/v1/admin/users" + suffix);
+}
+
+export async function fetchAdminReports(params: {
+  status?: AdminReportStatus;
+  limit?: number;
+  offset?: number;
+} = {}): Promise<{ items: AdminReport[]; total: number }> {
+  const query = new URLSearchParams();
+  if (params.status) query.set("status", params.status);
+  if (params.limit !== undefined) query.set("limit", String(params.limit));
+  if (params.offset !== undefined) query.set("offset", String(params.offset));
+  const suffix = query.toString() ? "?" + query.toString() : "";
+  return fetchJson<{ items: AdminReport[]; total: number }>("/api/v1/admin/reports" + suffix);
+}
+
+export async function updateAdminReportStatus(
+  reportId: string,
+  status: AdminReportStatus,
+): Promise<AdminReport> {
+  return fetchJson<AdminReport>(`/api/v1/admin/reports/${reportId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status }),
+  });
+}
+
+export async function updateAdminUserStatus(
+  userId: string,
+  status: UserProfile["status"],
+): Promise<AdminUser> {
+  return fetchJson<AdminUser>(`/api/v1/admin/users/${userId}/status`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status }),
+  });
+}
+
+export async function updateAdminUserIdentity(
+  userId: string,
+  idDocumentStatus: AdminUser["id_document_status"],
+): Promise<AdminUser> {
+  return fetchJson<AdminUser>(`/api/v1/admin/users/${userId}/identity`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id_document_status: idDocumentStatus }),
+  });
+}

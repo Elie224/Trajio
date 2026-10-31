@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, date, datetime, time, timedelta
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -27,6 +28,9 @@ def escape_like(value: str) -> str:
         .replace("%", LIKE_ESCAPE_CHAR + "%")
         .replace("_", LIKE_ESCAPE_CHAR + "_")
     )
+
+def normalize_place_query(value: str) -> str:
+    return re.sub(r"[^\w%_]+", " ", value.lower()).strip()
 
 
 def fuzz_coordinate(value: float, decimals: int | None = None) -> float:
@@ -98,16 +102,17 @@ async def search_trips(
         .limit(candidate_limit)
     )
 
-    if origin_query:
+    if origin_query and (pickup_lat is None or pickup_lng is None):
         query = query.where(
-            Trip.origin_label.ilike(
-                f"%{escape_like(origin_query.strip())}%", escape=LIKE_ESCAPE_CHAR
+            func.regexp_replace(func.lower(Trip.origin_label), "[^[:alnum:]]+", " ", "g").like(
+                f"%{escape_like(normalize_place_query(origin_query))}%", escape=LIKE_ESCAPE_CHAR
             )
         )
-    if destination_query:
+    if destination_query and (dropoff_lat is None or dropoff_lng is None):
         query = query.where(
-            Trip.destination_label.ilike(
-                f"%{escape_like(destination_query.strip())}%", escape=LIKE_ESCAPE_CHAR
+            func.regexp_replace(func.lower(Trip.destination_label), "[^[:alnum:]]+", " ", "g").like(
+                f"%{escape_like(normalize_place_query(destination_query))}%",
+                escape=LIKE_ESCAPE_CHAR,
             )
         )
     if date_filter:

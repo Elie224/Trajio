@@ -20,10 +20,9 @@ type TrajioMapProps = {
 };
 
 /** Pin with a pulsing halo (see .map-pin in globals.css; static if reduced motion). */
-function createMarker(color: string, label: string) {
+function createMarker(variant: "pickup" | "dropoff", label: string) {
   const marker = document.createElement("span");
-  marker.className = "map-pin";
-  marker.style.backgroundColor = color;
+  marker.className = `map-pin map-pin--${variant}`;
   marker.setAttribute("role", "img");
   marker.setAttribute("aria-label", label);
   return marker;
@@ -45,14 +44,14 @@ function paintOverlay(
 
   if (pickupCoordinate) {
     markers.push(
-      new maplibregl.Marker({ element: createMarker("#059669", "Départ") })
+      new maplibregl.Marker({ element: createMarker("pickup", "Départ") })
         .setLngLat(pickupCoordinate)
         .addTo(map),
     );
   }
   if (dropoffCoordinate) {
     markers.push(
-      new maplibregl.Marker({ element: createMarker("#047857", "Arrivée") })
+      new maplibregl.Marker({ element: createMarker("dropoff", "Arrivée") })
         .setLngLat(dropoffCoordinate)
         .addTo(map),
     );
@@ -93,7 +92,7 @@ function paintOverlay(
       source: sourceId,
       layout: { "line-cap": "round", "line-join": "round" },
       paint: {
-        "line-color": "#059669",
+        "line-color": getComputedStyle(map.getContainer()).getPropertyValue("--color-primary-strong").trim(),
         "line-width": 5,
         "line-opacity": 0.95,
       },

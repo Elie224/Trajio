@@ -3,7 +3,7 @@
 import { useEffect, useState, type ComponentType } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CirclePlus, MessageSquare, Route, Search, UserRound } from "lucide-react";
+import { CirclePlus, MessageSquare, Route, Search, ShieldCheck, UserRound } from "lucide-react";
 
 import { useSession } from "@/features/auth/useSession";
 import { fetchConversations } from "@/lib/api";
@@ -41,19 +41,38 @@ export function BottomTabBar() {
     };
   }, [session.status, pathname]);
 
-  const tabs: Tab[] = [
-    { key: "/search", href: "/search", label: "Rechercher", Icon: Search },
-    { key: "/trips", href: "/trips", label: "Trajets", Icon: Route },
-    { key: "/offer", href: "/offer", label: "Proposer", Icon: CirclePlus },
-    {
-      key: "/messages",
-      href: messagesHref,
-      label: "Messages",
-      Icon: MessageSquare,
-      badge: session.status === "authenticated" ? unread : 0,
-    },
-    { key: "/account", href: accountHref, label: "Compte", Icon: UserRound },
-  ];
+  const isAdmin = session.status === "authenticated" && session.user.role === "admin";
+
+  // The header collapses to the logo below 768px, so an administrator needs
+  // the admin entry in the tab bar too: otherwise /admin is unreachable on a
+  // phone.
+  const tabs: Tab[] = isAdmin
+    ? [
+        { key: "/search", href: "/search", label: "Rechercher", Icon: Search },
+        { key: "/trips", href: "/trips", label: "Trajets", Icon: Route },
+        { key: "/offer", href: "/offer", label: "Proposer", Icon: CirclePlus },
+        {
+          key: "/messages",
+          href: messagesHref,
+          label: "Messages",
+          Icon: MessageSquare,
+          badge: session.status === "authenticated" ? unread : 0,
+        },
+        { key: "/admin", href: "/admin", label: "Admin", Icon: ShieldCheck },
+      ]
+    : [
+        { key: "/search", href: "/search", label: "Rechercher", Icon: Search },
+        { key: "/trips", href: "/trips", label: "Trajets", Icon: Route },
+        { key: "/offer", href: "/offer", label: "Proposer", Icon: CirclePlus },
+        {
+          key: "/messages",
+          href: messagesHref,
+          label: "Messages",
+          Icon: MessageSquare,
+          badge: session.status === "authenticated" ? unread : 0,
+        },
+        { key: "/account", href: accountHref, label: "Compte", Icon: UserRound },
+      ];
 
   return (
     <nav
@@ -70,7 +89,7 @@ export function BottomTabBar() {
                 aria-current={active ? "page" : undefined}
                 className={
                   "relative flex h-16 min-h-12 flex-col items-center justify-center gap-0.5 px-1 text-center text-[11px] font-medium leading-tight " +
-                  (active ? "text-primary-strong" : "text-page-muted hover:text-page-text")
+                  (active ? "bg-active text-primary-strong" : "text-page-muted hover:text-page-text")
                 }
               >
                 <span className="relative">

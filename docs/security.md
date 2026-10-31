@@ -57,6 +57,38 @@ Trois roles : `passenger`, `driver`, `admin`. Le role n'accorde jamais un
 droit implicite : chaque endpoint declare explicitement ce qu'il exige, et
 chaque regle a un test negatif associe.
 
+### 4.1 Surface d'administration
+
+Le tableau de bord d'administration est une surface de premiere importance :
+c'est la ou se concentrent les sanctions, les decisions d'identite et les
+donnees de tous les comptes. Une session d'administrateur volee donne le
+controle de la plateforme, donc chaque regle y est appliquee et verifiee.
+
+| Regle | Mise en oeuvre |
+|---|---|
+| Role lu en base, jamais dans le jeton | `require_admin` relit `users.role` ; un jeton portant `role=admin` sur un compte non administrateur est refuse (403) |
+| Role non auto-service | Seule la promotion hors bande existe (`ADMIN_BOOTSTRAP_EMAIL`), elle ne promeut que, ne retrograde jamais et ne cree aucun compte |
+| Sanction = revocation de session | Chaque sanction et chaque decision d'identite incrementent `users.token_version` : les jetons anterieurs sont rejetes (401) |
+| File de moderation non lockable | Un administrateur ne peut pas sanctionner un autre administrateur ni se sanctionner lui-meme (409) |
+| Identite non decidee sur un administrateur | La decision d'identite est refusee sur un compte `admin` (409) |
+| Quotas sur toute la surface | 120 requetes/minute en lecture, 60 en ecriture, par IP ; au-dela la reponse est un 429 avec `Retry-After` |
+| Recherche non exploitable | Les jokers SQL `%` et `_` de la recherche sont echappes : une recherche contenant `%` ne renvoie pas tout l'annuaire |
+| Pas de fuite de secret | La reponse ne contient ni `password_hash`, ni `token_version`, ni aucun compteur interne |
+| Comptes supprimes hors annuaire | Les comptes en suppression logique sont exclus de la liste et des statistiques |
+| Regles cote client non suffisantes | La garde de role du frontend evite les appels inutiles ; elle ne remplace jamais la verification serveur |
+
+La surface est verifiee par des tests d'attaque, pas seulement relue :
+`apps/api/tests/test_admin_security.py` rejoue les attaques (appel anonyme,
+role usurpe, administrateur suspendu, jeton expire, jeton de rafraichissement
+utilise comme jeton d'acces, privilege d'escalade, joker SQL, fuite de secret,
+quota) et `apps/api/tests/test_admin.py` verifie le comportement fonctionnel.
+
+Le jeton d'acces reste porte par un cookie `HttpOnly`, `Secure` en
+production et `SameSite=Strict`. `SameSite=Strict` protege des requetes
+issues d'un site tiers ; il ne protege pas d'un sous-domaine compromis, d'ou
+la regle de ne jamais deployer l'API sur un domaine partage avec une
+application tierce non maitrisee.
+
 ## 5. Validation des entrees
 
 - Pydantic valide et normalise toute entree. Aucune donnee n'atteint la base
