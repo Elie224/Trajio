@@ -6,6 +6,7 @@ No other module should import endpoints directly.
 
 from fastapi import APIRouter
 
+from app.api.v1.endpoints.admin import router as admin_router
 from app.api.v1.endpoints.auth import router as auth_router
 from app.api.v1.endpoints.bookings import router as bookings_router
 from app.api.v1.endpoints.health import router as health_router
@@ -29,6 +30,6 @@ api_router.include_router(messages_router)
 api_router.include_router(reviews_router)
 api_router.include_router(reports_router)
 api_router.include_router(blocks_router)
+api_router.include_router(admin_router)
 
 # Remaining modules, see docs/roadmap.md.
-# api_router.include_router(admin_router,      prefix="/admin",     tags=["admin"])

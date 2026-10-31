@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.security import decode_token
 from app.db.session import get_session
-from app.models import IdDocumentStatus, User, UserStatus
+from app.models import IdDocumentStatus, User, UserRole, UserStatus
 
 
 async def get_db_session(
@@ -90,6 +90,20 @@ async def require_active_user(user: User = Depends(get_current_user)) -> User:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Votre compte doit être actif pour cette action.",
+        )
+    return user
+
+
+async def require_admin(user: User = Depends(get_current_user)) -> User:
+    """Gate for the administration surface.
+
+    The role is read from the database, never from the token claims: a token
+    issued before a downgrade must not keep administrator access.
+    """
+    if user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accès réservé aux administrateurs.",
         )
     return user
 
