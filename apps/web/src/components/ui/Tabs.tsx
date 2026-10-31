@@ -5,6 +5,8 @@ import { useRef, type ReactNode } from "react";
 export type TabItem = {
   id: string;
   label: string;
+  /** Shorter wording shown below the `sm` breakpoint, when space is tight. */
+  short?: string;
   /** Optional count badge (e.g. pending reports). */
   badge?: number;
 };
@@ -48,17 +50,10 @@ export function Tabs({ items, activeId, onChange, idPrefix, label, className = "
       ref={listRef}
       role="tablist"
       aria-label={label}
-      className={
-        // On a narrow screen the three tabs do not fit on one line: they
-        // scroll horizontally instead of wrapping, so the tab row keeps a
-        // stable height and stays readable.
-        // `w-full min-w-0` keeps the scroller from growing past its parent
-        // (which would push the whole page sideways).
-        "flex w-full min-w-0 gap-2 overflow-x-auto rounded-[var(--radius-control)] bg-brand-50 p-1 " +
-        "[-ms-overflow-style:none] [scrollbar-width:none] " +
-        "[&::-webkit-scrollbar]:hidden " +
-        className
-      }
+      // `flex-wrap`: the tabs wrap onto a second line on a narrow screen
+      // instead of scrolling. A horizontal scroller here would make the
+      // document itself scrollable sideways on mobile.
+      className={"flex flex-wrap gap-2 rounded-[var(--radius-control)] bg-brand-50 p-1 " + className}
     >
       {items.map((item, index) => {
         const selected = item.id === activeId;
@@ -88,15 +83,26 @@ export function Tabs({ items, activeId, onChange, idPrefix, label, className = "
               }
             }}
             className={
-              "inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-[var(--radius-control)] px-4 text-sm font-medium transition-colors " +
+              "inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[var(--radius-control)] px-2.5 text-sm font-medium transition-colors sm:gap-2 sm:px-4 " +
               (selected
                 ? "bg-primary-strong text-white"
                 : "text-page-muted hover:bg-white hover:text-page-text")
             }
+            // The accessible name is always the full label, whatever the
+            // wording shown on screen at the current width.
+            aria-label={item.label}
           >
-            {item.label}
+            {item.short && (
+              <>
+                <span aria-hidden="true" className="sm:hidden">
+                  {item.short}
+                </span>
+                <span className="hidden sm:inline">{item.label}</span>
+              </>
+            )}
+            {!item.short && item.label}
             {item.badge !== undefined && item.badge > 0 && (
-              <span className="rounded-full bg-danger px-1.5 text-xs font-semibold leading-5 text-white">
+              <span className="rounded-full bg-danger px-1.5 text-xs font-semibold leading-5 text-white sm:px-2">
                 {item.badge}
                 <span className="sr-only"> élément(s) en attente</span>
               </span>

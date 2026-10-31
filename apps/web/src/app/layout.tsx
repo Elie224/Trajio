@@ -47,7 +47,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="fr" className={`h-full ${inter.variable} ${poppins.variable}`}>
       <body className="flex min-h-full flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] font-sans antialiased md:pb-0">
         <SiteHeader />
-        <main className="flex-1">{children}</main>
+        {/* `min-w-0`: the body is a flex column, and a flex item defaults to
+            `min-width: auto`, which would let a wide child (the admin tab
+            scroller) push the whole page sideways on a narrow screen. */}
+        <main className="min-w-0 flex-1">{children}</main>
         <SiteFooter />
         <BottomTabBar />
       </body>

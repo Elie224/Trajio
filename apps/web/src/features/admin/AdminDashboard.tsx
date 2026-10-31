@@ -18,10 +18,17 @@ import { fetchAdminStats, type AdminStats } from "@/lib/api";
 
 type Tab = "overview" | "users" | "reports";
 
+/**
+ * Tab labels.
+ *
+ * `short` is used below the `sm` breakpoint so the three tabs stay on one
+ * line on a phone; `label` is the full wording, used from `sm` up and
+ * exposed to assistive technology as the accessible name.
+ */
 const TABS = [
-  { id: "overview" as const, label: "Vue d'ensemble" },
-  { id: "users" as const, label: "Utilisateurs" },
-  { id: "reports" as const, label: "Signalements" },
+  { id: "overview" as const, label: "Vue d'ensemble", short: "Aperçu" },
+  { id: "users" as const, label: "Utilisateurs", short: "Comptes" },
+  { id: "reports" as const, label: "Signalements", short: "Signaux" },
 ];
 
 const ID_PREFIX = "admin";
