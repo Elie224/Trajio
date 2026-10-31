@@ -82,12 +82,25 @@ class Settings(BaseSettings):
 
     # -- Rate limiting ----------------------------------------------------
     RATE_LIMIT_ENABLED: bool = True
-    # "memory://" is per process; use e.g. "redis://..." with several workers.
+    # "memory://" is per process; refused outside development.
     RATE_LIMIT_STORAGE_URI: str = "memory://"
 
-    # -- CORS -------------------------------------------------------------
-    # Comma-separated list, to stay friendly to plain .env files.
+    # -- CORS / hosts -----------------------------------------------------
+    # Comma-separated lists, to stay friendly to plain .env files.
     CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
+    ALLOWED_HOSTS: str = ""
+    # Never return a reset JWT in HTTP. True is development-only.
+    EXPOSE_DEV_RESET_TOKEN: bool = False
+    # None = enforced outside development (telephone, identity, licence).
+    REQUIRE_IDENTITY_VERIFICATION: bool | None = None
+
+    # -- Mail -------------------------------------------------------------
+    PUBLIC_WEB_BASE_URL: str = "http://localhost:3000"
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM: str = "Trajio <noreply@localhost>"
 
     # -- Geospatial defaults ---------------------------------------------
     DEFAULT_SEARCH_RADIUS_M: int = 5000
@@ -102,6 +115,23 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+
+    @property
+    def allowed_host_list(self) -> list[str]:
+        parsed = [host.strip() for host in self.ALLOWED_HOSTS.split(",") if host.strip()]
+        if parsed:
+            return parsed
+        return ["localhost", "127.0.0.1", "testserver", "api"]
+
+    @property
+    def uses_memory_rate_limit(self) -> bool:
+        return self.RATE_LIMIT_STORAGE_URI.strip().lower().startswith("memory://")
+
+    @property
+    def identity_verification_required(self) -> bool:
+        if self.REQUIRE_IDENTITY_VERIFICATION is not None:
+            return self.REQUIRE_IDENTITY_VERIFICATION
+        return not self.is_development
 
     @property
     def async_database_url(self) -> str:
@@ -161,6 +191,12 @@ class Settings(BaseSettings):
             problems.append("POSTGRES_PASSWORD est une valeur par defaut")
         if self.DEBUG:
             problems.append("DEBUG doit etre faux hors developpement")
+        if self.EXPOSE_DEV_RESET_TOKEN:
+            problems.append("EXPOSE_DEV_RESET_TOKEN est interdit hors developpement")
+        if self.uses_memory_rate_limit:
+            problems.append("RATE_LIMIT_STORAGE_URI=memory:// est interdit (utilisez Redis)")
+        if not self.ALLOWED_HOSTS.strip() or "*" in self.allowed_host_list:
+            problems.append("ALLOWED_HOSTS doit lister des hotes explicites, sans joker")
         if problems:
             raise ValueError(
                 f"Configuration refusee pour APP_ENV={self.APP_ENV!r} : " + " ; ".join(problems)

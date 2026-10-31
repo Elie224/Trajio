@@ -5,12 +5,13 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db_session, require_active_user
+from app.api.deps import get_db_session, require_active_user, require_verified_driver
+from app.core.rate_limit import account_limiter, limiter
 from app.models import Booking, BookingStatus, Trip, TripStatus, User, Vehicle
 from app.schemas.auth import AuthMessage
 from app.schemas.trip import TripCreateRequest, TripPublic, TripUpdateRequest
@@ -62,11 +63,15 @@ def _ensure_future(departure_time: datetime) -> None:
 
 
 @router.post("", response_model=TripPublic, status_code=status.HTTP_201_CREATED)
+@limiter.limit("20/hour")
 async def create_trip(
+    request: Request,
     payload: TripCreateRequest,
     session: AsyncSession = Depends(get_db_session),
     user: User = Depends(require_active_user),
 ) -> TripPublic:
+    account_limiter.hit("create-trip", str(user.id), limit=10, window_seconds=3600)
+    require_verified_driver(user)
     vehicle = await _get_driver_vehicle(session, user, payload.vehicle_id)
     if payload.seats_total > vehicle.seats_total:
         raise _unprocessable("Le nombre de places dépasse la capacité du véhicule.")
@@ -117,7 +122,9 @@ async def list_my_trips(
 
 
 @router.patch("/{trip_id}", response_model=TripPublic)
+@limiter.limit("60/hour")
 async def update_trip(
+    request: Request,
     trip_id: UUID,
     payload: TripUpdateRequest,
     session: AsyncSession = Depends(get_db_session),
@@ -169,7 +176,9 @@ async def update_trip(
 
 
 @router.post("/{trip_id}/cancel", response_model=AuthMessage)
+@limiter.limit("30/hour")
 async def cancel_trip(
+    request: Request,
     trip_id: UUID,
     session: AsyncSession = Depends(get_db_session),
     user: User = Depends(require_active_user),

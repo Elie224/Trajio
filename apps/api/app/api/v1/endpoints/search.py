@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime, time, timedelta
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db_session, require_active_user
 from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.matching import PassengerSearchInput, TripCandidateInput, score_trip_candidate
 from app.models import Trip, TripStatus, User, Vehicle
 from app.schemas.trip import TripSearchResponse, TripSearchResult
@@ -45,7 +46,9 @@ def public_driver_name(first_name: str, last_name: str) -> str:
 
 
 @router.get("/trips", response_model=TripSearchResponse)
+@limiter.limit("60/minute")
 async def search_trips(
+    request: Request,
     origin_query: str | None = Query(default=None, min_length=2, max_length=160),
     destination_query: str | None = Query(default=None, min_length=2, max_length=160),
     date_filter: date | None = Query(default=None, alias="date"),

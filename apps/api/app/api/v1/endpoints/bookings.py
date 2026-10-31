@@ -5,12 +5,13 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
-from app.api.deps import get_db_session, require_active_user
+from app.api.deps import get_db_session, require_active_user, require_verified_phone
+from app.core.rate_limit import account_limiter, limiter
 from app.models import Booking, BookingStatus, Trip, TripStatus, User
 from app.schemas.auth import AuthMessage
 from app.schemas.booking import (
@@ -19,6 +20,7 @@ from app.schemas.booking import (
     BookingPublic,
     BookingView,
 )
+from app.services.trust import get_or_create_conversation, users_are_blocked
 
 router = APIRouter(prefix="/bookings", tags=["bookings"])
 
@@ -83,11 +85,15 @@ async def _load_booking_for_driver(
 
 
 @router.post("", response_model=BookingPublic, status_code=status.HTTP_201_CREATED)
+@limiter.limit("30/hour")
 async def create_booking(
+    request: Request,
     payload: BookingCreateRequest,
     session: AsyncSession = Depends(get_db_session),
     user: User = Depends(require_active_user),
 ) -> BookingPublic:
+    account_limiter.hit("create-booking", str(user.id), limit=20, window_seconds=3600)
+    require_verified_phone(user)
     trip = await session.scalar(
         select(Trip).where(Trip.id == payload.trip_id).with_for_update(of=Trip)
     )
@@ -97,6 +103,11 @@ async def create_booking(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Vous ne pouvez pas réserver votre propre trajet.",
+        )
+    if await users_are_blocked(session, user.id, trip.driver_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Vous ne pouvez pas réserver ce trajet.",
         )
     if trip.status != TripStatus.SCHEDULED:
         raise HTTPException(
@@ -184,7 +195,9 @@ async def list_incoming_bookings(
 
 
 @router.post("/{booking_id}/accept", response_model=AuthMessage)
+@limiter.limit("60/hour")
 async def accept_booking(
+    request: Request,
     booking_id: UUID,
     session: AsyncSession = Depends(get_db_session),
     user: User = Depends(require_active_user),
@@ -197,6 +210,7 @@ async def accept_booking(
         )
     booking.status = BookingStatus.ACCEPTED
     booking.responded_at = datetime.now(UTC)
+    await get_or_create_conversation(session, booking, _trip)
     await session.commit()
     return AuthMessage(message="Réservation acceptée.")
 

@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db_session, require_active_user
+from app.core.rate_limit import account_limiter, limiter
 from app.models import User, UserRole, Vehicle
 from app.schemas.vehicle import VehicleCreateRequest, VehiclePublic, VehicleUpdateRequest
 
@@ -30,11 +31,14 @@ async def list_my_vehicles(
 
 
 @router.post("", response_model=VehiclePublic, status_code=status.HTTP_201_CREATED)
+@limiter.limit("20/hour")
 async def create_vehicle(
+    request: Request,
     payload: VehicleCreateRequest,
     session: AsyncSession = Depends(get_db_session),
     user: User = Depends(require_active_user),
 ) -> VehiclePublic:
+    account_limiter.hit("create-vehicle", str(user.id), limit=10, window_seconds=3600)
     if payload.is_primary:
         await session.execute(
             update(Vehicle).where(Vehicle.owner_id == user.id).values(is_primary=False)

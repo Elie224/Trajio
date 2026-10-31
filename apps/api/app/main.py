@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.exc import DBAPIError, InterfaceError, OperationalError
@@ -16,6 +17,7 @@ from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.logging import configure_logging
 from app.core.rate_limit import limiter, rate_limit_exceeded_handler
+from app.services.purge import purge_stale_refresh_tokens
 
 logger = logging.getLogger("app.startup")
 db_logger = logging.getLogger("app.database")
@@ -50,6 +52,8 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     """
     configure_logging()
     warn_about_insecure_defaults()
+    if not settings.is_development:
+        await purge_stale_refresh_tokens()
     yield
 
 
@@ -128,6 +132,7 @@ def create_app() -> FastAPI:
         allow_headers=CORS_ALLOWED_HEADERS,
         expose_headers=["Retry-After"],
     )
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_host_list)
 
     # The liveness probe stays at the root, outside the versioned API.
     app.include_router(health_router)

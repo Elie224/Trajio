@@ -141,14 +141,17 @@ async def test_ip_limit_retry_after_is_time_left(client, fake_session, monkeypat
     assert 42 <= int(response.headers["Retry-After"]) <= 43
 
 
-@pytest.mark.parametrize("env", ["production", "staging"])
-async def test_forgot_password_never_returns_token_outside_dev(
+@pytest.mark.parametrize("env", ["production", "staging", "development"])
+async def test_forgot_password_never_returns_token_by_default(
     client, fake_session, monkeypatch, env
 ) -> None:
     from app.core.config import settings
 
     monkeypatch.setattr(settings, "APP_ENV", env)
-    fake_session.counts = [SimpleNamespace(id=uuid4(), password_hash="hash")]
+    monkeypatch.setattr(settings, "EXPOSE_DEV_RESET_TOKEN", False)
+    fake_session.counts = [
+        SimpleNamespace(id=uuid4(), password_hash="hash", email="a@example.com")
+    ]
     response = await client.post("/api/v1/auth/forgot-password", json={"email": "a@example.com"})
     assert response.status_code == 200
     assert "reset_token" not in response.json()

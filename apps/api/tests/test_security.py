@@ -1,9 +1,12 @@
 """Security regressions: configuration, passwords, tokens, search exposure."""
 
 import secrets
+from datetime import UTC, datetime
+from types import SimpleNamespace
 
 import jwt
 import pytest
+from app.api.deps import require_verified_driver, require_verified_phone
 from app.api.v1.endpoints.search import escape_like, fuzz_coordinate, public_driver_name
 from app.core.config import Settings
 from app.core.rate_limit import AccountRateLimiter
@@ -14,6 +17,7 @@ from app.core.security import (
     password_fingerprint,
     password_policy_error,
 )
+from app.models import IdDocumentStatus
 from app.schemas.auth import LoginRequest, RegisterRequest, RegisterResponse
 from app.schemas.booking import BookingCreateRequest
 from app.schemas.trip import TripUpdateRequest
@@ -51,14 +55,67 @@ def test_debug_is_refused_in_production() -> None:
 
 def test_strong_configuration_is_accepted_in_production() -> None:
     settings = Settings(
-        APP_ENV="production", SECRET_KEY=STRONG_SECRET, POSTGRES_PASSWORD=STRONG_DB_PASSWORD
+        APP_ENV="production",
+        SECRET_KEY=STRONG_SECRET,
+        POSTGRES_PASSWORD=STRONG_DB_PASSWORD,
+        RATE_LIMIT_STORAGE_URI="redis://localhost:6379/0",
+        ALLOWED_HOSTS="trajio.fr",
     )
     assert settings.secret_key_is_weak is False
+
+
+def test_memory_rate_limit_is_refused_outside_development() -> None:
+    with pytest.raises(ValidationError):
+        Settings(
+            APP_ENV="production",
+            SECRET_KEY=STRONG_SECRET,
+            POSTGRES_PASSWORD=STRONG_DB_PASSWORD,
+            RATE_LIMIT_STORAGE_URI="memory://",
+            ALLOWED_HOSTS="trajio.fr",
+        )
+
+
+def test_wildcard_hosts_are_refused_outside_development() -> None:
+    with pytest.raises(ValidationError):
+        Settings(
+            APP_ENV="staging",
+            SECRET_KEY=STRONG_SECRET,
+            POSTGRES_PASSWORD=STRONG_DB_PASSWORD,
+            RATE_LIMIT_STORAGE_URI="redis://localhost:6379/0",
+            ALLOWED_HOSTS="*",
+        )
 
 
 def test_weak_secret_is_tolerated_but_flagged_in_development() -> None:
     settings = Settings(APP_ENV="development", SECRET_KEY="dev-insecure-secret-change-me")
     assert settings.secret_key_is_weak is True
+
+
+def test_driver_and_phone_verification_block_when_required(monkeypatch) -> None:
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "REQUIRE_IDENTITY_VERIFICATION", True)
+    unverified = SimpleNamespace(
+        email_verified_at=None,
+        phone_verified_at=None,
+        license_verified_at=None,
+        id_document_status=IdDocumentStatus.PENDING,
+    )
+    with pytest.raises(HTTPException) as blocked:
+        require_verified_driver(unverified)
+    assert blocked.value.status_code == 403
+    with pytest.raises(HTTPException) as phone:
+        require_verified_phone(unverified)
+    assert phone.value.status_code == 403
+    now = datetime.now(UTC)
+    verified = SimpleNamespace(
+        email_verified_at=now,
+        phone_verified_at=now,
+        license_verified_at=now,
+        id_document_status=IdDocumentStatus.VERIFIED,
+    )
+    require_verified_driver(verified)
+    require_verified_phone(verified)
 
 
 # -- Passwords ----------------------------------------------------------------

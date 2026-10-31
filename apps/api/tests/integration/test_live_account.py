@@ -9,7 +9,15 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 
-from .conftest import BASE, PASSWORD, new_client, next_ip, pytestmark, register_and_login  # noqa: F401
+from .conftest import (  # noqa: F401
+    BASE,
+    PASSWORD,
+    mint_reset_token,
+    new_client,
+    next_ip,
+    pytestmark,
+    register_and_login,
+)
 
 FRONT = "http://localhost:3000"
 
@@ -164,7 +172,7 @@ def _forgot(email: str) -> httpx.Response:
     )
 
 
-def test_token_confusion_and_reuse():
+def test_token_confusion_and_reuse(db):
     c, email = register_and_login("tok")
     access = c.cookies.get("trajio_access_token")
     r = new_client().post(
@@ -172,7 +180,8 @@ def test_token_confusion_and_reuse():
     )
     assert r.status_code == 400, r.text
     fp = _forgot(email)
-    reset = fp.json()["reset_token"]  # dev mode only
+    assert "reset_token" not in fp.json()
+    reset = mint_reset_token(db, email)
     assert (
         new_client().get("/auth/me", headers={"Authorization": f"Bearer {reset}"}).status_code
         == 401
@@ -209,12 +218,13 @@ def test_forgot_password_indistinguishable():
     assert abs(diff_ms) < 20
 
 
-def test_same_second_reset_revokes_old_session_token_version():
+def test_same_second_reset_revokes_old_session_token_version(db):
     for _ in range(3):  # repeat: reset happens within the same second as login
         c, email = register_and_login("tv")
         old_access = c.cookies.get("trajio_access_token")
         old_refresh = c.cookies.get("trajio_refresh_token")
-        reset = _forgot(email).json()["reset_token"]
+        _forgot(email)
+        reset = mint_reset_token(db, email)
         new_pw = "Another-Dummy-456!"
         ok = new_client().post(
             "/auth/reset-password", json={"token": reset, "new_password": new_pw}

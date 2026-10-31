@@ -49,6 +49,23 @@ def register_and_login(prefix: str = "u") -> tuple[httpx.Client, str]:
     return c, email
 
 
+def mint_reset_token(db, email: str) -> str:
+    from uuid import UUID
+
+    from app.core.security import issue_purpose_token, password_fingerprint
+
+    with db.cursor() as cur:
+        cur.execute("select id::text, password_hash from users where email = %s", (email,))
+        row = cur.fetchone()
+    assert row is not None
+    return issue_purpose_token(
+        user_id=UUID(row[0]),
+        purpose="reset_password",
+        expires_minutes=30,
+        extra={"pwd": password_fingerprint(row[1])},
+    )
+
+
 @pytest.fixture
 def db():
     from app.core.config import settings
