@@ -8,7 +8,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from app.core.security import password_policy_error
-from app.models import UserRole, UserStatus
+from app.models import IdDocumentStatus, UserRole, UserStatus
 
 
 def _check_password_policy(value: str) -> str:
@@ -29,6 +29,9 @@ class UserPublic(BaseModel):
     role: UserRole
     status: UserStatus
     email_verified_at: datetime | None
+    phone_verified_at: datetime | None = None
+    license_verified_at: datetime | None = None
+    id_document_status: IdDocumentStatus = IdDocumentStatus.PENDING
     created_at: datetime
     updated_at: datetime
 

@@ -9,13 +9,23 @@ from typing import Any
 from uuid import UUID
 
 import jwt
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Cookie,
+    Depends,
+    HTTPException,
+    Request,
+    Response,
+    status,
+)
 from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db_session
-from app.core.config import settings
+from app.core.config import REPO_ROOT, settings
+from app.core.mail import deliver_email_verification, deliver_password_reset
 from app.core.rate_limit import account_limiter, limiter
 from app.core.security import (
     decode_token,
@@ -31,10 +41,15 @@ from app.core.security import (
 from app.models import (
     Booking,
     BookingStatus,
+    ConversationParticipant,
+    Message,
     RefreshToken,
+    Report,
+    Review,
     Trip,
     TripStatus,
     User,
+    UserBlock,
     UserStatus,
     Vehicle,
 )
@@ -54,6 +69,7 @@ from app.schemas.auth import (
 )
 from app.schemas.booking import BookingPublic
 from app.schemas.trip import TripPublic
+from app.schemas.trust import MessagePublic, ReportPublic, ReviewPublic
 from app.schemas.vehicle import VehiclePublic
 
 audit_logger = logging.getLogger("trajio.audit")
@@ -80,7 +96,7 @@ def _cookie_secure() -> bool:
 
 
 def _is_email_verification_enforced() -> bool:
-    return settings.is_production
+    return not settings.is_development
 
 
 def _set_auth_cookies(response: Response, access_token: str, refresh_token: str) -> None:
@@ -158,6 +174,7 @@ async def _revoke_refresh_tokens(session: AsyncSession, user_id: UUID, now: date
 async def register(
     request: Request,
     payload: RegisterRequest,
+    background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_db_session),
 ) -> RegisterResponse:
     account_limiter.hit("register", payload.email, limit=3, window_seconds=3600)
@@ -168,24 +185,31 @@ async def register(
     existing = await session.scalar(
         select(User.id).where(User.email == payload.email, User.deleted_at.is_(None))
     )
+    created: User | None = None
     if existing is None:
         now = datetime.now(UTC)
-        session.add(
-            User(
-                email=payload.email,
-                first_name=payload.first_name,
-                last_name=payload.last_name,
-                password_hash=password_hash,
-                status=UserStatus.PENDING if enforced else UserStatus.ACTIVE,
-                email_verified_at=None if enforced else now,
-            )
+        created = User(
+            email=payload.email,
+            first_name=payload.first_name,
+            last_name=payload.last_name,
+            password_hash=password_hash,
+            status=UserStatus.PENDING if enforced else UserStatus.ACTIVE,
+            email_verified_at=None if enforced else now,
         )
+        session.add(created)
         try:
             await session.commit()
+            await session.refresh(created)
         except IntegrityError:
             await session.rollback()
-    # TODO(email): when mail sending exists, notify the owner of an existing
-    # address instead of creating anything, without changing this response.
+            created = None
+    if created is not None and enforced:
+        verify_token = issue_purpose_token(
+            user_id=created.id,
+            purpose=EMAIL_VERIFY_PURPOSE,
+            expires_minutes=24 * 60,
+        )
+        background_tasks.add_task(deliver_email_verification, created.email, verify_token)
     return RegisterResponse(message=GENERIC_REGISTER_MESSAGE, verification_required=enforced)
 
 
@@ -314,6 +338,8 @@ async def update_me(
     if payload.last_name is not None:
         user.last_name = payload.last_name
     if "phone" in payload.model_fields_set:
+        if payload.phone != user.phone:
+            user.phone_verified_at = None
         user.phone = payload.phone
 
     try:
@@ -340,6 +366,26 @@ async def export_my_data(
     vehicles = (await session.scalars(select(Vehicle).where(Vehicle.owner_id == user.id))).all()
     trips = (await session.scalars(select(Trip).where(Trip.driver_id == user.id))).all()
     bookings = (await session.scalars(select(Booking).where(Booking.passenger_id == user.id))).all()
+    sent_messages = (
+        await session.scalars(select(Message).where(Message.sender_id == user.id))
+    ).all()
+    received_messages = (
+        await session.scalars(
+            select(Message)
+            .join(
+                ConversationParticipant,
+                ConversationParticipant.conversation_id == Message.conversation_id,
+            )
+            .where(
+                ConversationParticipant.user_id == user.id,
+                Message.sender_id != user.id,
+                Message.deleted_at.is_(None),
+            )
+        )
+    ).all()
+    reviews = (await session.scalars(select(Review).where(Review.author_id == user.id))).all()
+    reports = (await session.scalars(select(Report).where(Report.reporter_id == user.id))).all()
+    blocks = (await session.scalars(select(UserBlock).where(UserBlock.blocker_id == user.id))).all()
     profile = UserPublic.model_validate(user).model_dump(mode="json")
     profile["last_login_at"] = user.last_login_at.isoformat() if user.last_login_at else None
     return {
@@ -348,6 +394,18 @@ async def export_my_data(
         "vehicles": [VehiclePublic.model_validate(v).model_dump(mode="json") for v in vehicles],
         "trips": [TripPublic.model_validate(t).model_dump(mode="json") for t in trips],
         "bookings": [BookingPublic.model_validate(b).model_dump(mode="json") for b in bookings],
+        "messages_sent": [
+            MessagePublic.model_validate(m).model_dump(mode="json") for m in sent_messages
+        ],
+        "messages_received": [
+            MessagePublic.model_validate(m).model_dump(mode="json") for m in received_messages
+        ],
+        "reviews": [ReviewPublic.model_validate(r).model_dump(mode="json") for r in reviews],
+        "reports": [ReportPublic.model_validate(r).model_dump(mode="json") for r in reports],
+        "blocks": [
+            {"user_id": str(block.blocked_id), "created_at": block.created_at.isoformat()}
+            for block in blocks
+        ],
     }
 
 
@@ -466,26 +524,52 @@ async def delete_me(
 async def forgot_password(
     request: Request,
     payload: ForgotPasswordRequest,
+    background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_db_session),
 ) -> ForgotPasswordResponse:
     account_limiter.hit("forgot", payload.email, limit=3, window_seconds=3600)
     user = await session.scalar(
         select(User).where(User.email == payload.email, User.deleted_at.is_(None))
     )
-    if user is None:
-        return ForgotPasswordResponse(message=GENERIC_FORGOT_MESSAGE)
+    token: str | None = None
+    if user is not None:
+        token = issue_purpose_token(
+            user_id=user.id,
+            purpose=RESET_PASSWORD_PURPOSE,
+            expires_minutes=30,
+            extra={"pwd": password_fingerprint(user.password_hash)},
+        )
+        background_tasks.add_task(deliver_password_reset, user.email, token)
+    #region agent log
+    try:
+        import json
+        from pathlib import Path
 
-    token = issue_purpose_token(
-        user_id=user.id,
-        purpose=RESET_PASSWORD_PURPOSE,
-        expires_minutes=30,
-        extra={"pwd": password_fingerprint(user.password_hash)},
-    )
-    if not settings.is_development:
-        # TODO(email): send the link by email.
-        return ForgotPasswordResponse(message=GENERIC_FORGOT_MESSAGE)
-
-    return ForgotPasswordResponse(message=GENERIC_FORGOT_MESSAGE, reset_token=token)
+        Path(REPO_ROOT / "debug-ec2363.log").open("a", encoding="utf-8").write(
+            json.dumps(
+                {
+                    "sessionId": "ec2363",
+                    "runId": "post-fix",
+                    "hypothesisId": "A",
+                    "location": "auth.py:forgot_password",
+                    "message": "forgot-password response token policy",
+                    "data": {
+                        "tokenInHttp": bool(
+                            settings.is_development and settings.EXPOSE_DEV_RESET_TOKEN
+                        ),
+                        "userFound": user is not None,
+                    },
+                    "timestamp": int(datetime.now(UTC).timestamp() * 1000),
+                }
+            )
+            + "\n"
+        )
+    except Exception:
+        pass
+    #endregion
+    if settings.is_development and settings.EXPOSE_DEV_RESET_TOKEN:
+        return ForgotPasswordResponse(message=GENERIC_FORGOT_MESSAGE, reset_token=token)
+    return ForgotPasswordResponse(message=GENERIC_FORGOT_MESSAGE)
 
 
 @router.post("/reset-password", response_model=AuthMessage)

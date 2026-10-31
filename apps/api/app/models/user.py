@@ -44,6 +44,12 @@ class UserStatus(StrEnum):
     BANNED = "banned"
 
 
+class IdDocumentStatus(StrEnum):
+    PENDING = "pending"
+    VERIFIED = "verified"
+    REJECTED = "rejected"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -77,6 +83,23 @@ class User(Base):
     )
     email_verified_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+    phone_verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    license_verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    id_document_status: Mapped[IdDocumentStatus] = mapped_column(
+        Enum(
+            IdDocumentStatus,
+            name="id_document_status",
+            validate_strings=True,
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+        ),
+        nullable=False,
+        default=IdDocumentStatus.PENDING,
+        server_default=IdDocumentStatus.PENDING.value,
     )
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # Access tokens issued before this instant are rejected (see api/deps.py).

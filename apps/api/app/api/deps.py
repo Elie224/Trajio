@@ -9,9 +9,10 @@ import jwt
 from fastapi import Cookie, Depends, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.security import decode_token
 from app.db.session import get_session
-from app.models import User, UserStatus
+from app.models import IdDocumentStatus, User, UserStatus
 
 
 async def get_db_session(
@@ -91,3 +92,32 @@ async def require_active_user(user: User = Depends(get_current_user)) -> User:
             detail="Votre compte doit être actif pour cette action.",
         )
     return user
+
+
+def require_verified_driver(user: User) -> None:
+    """Publish a trip: email + phone + identity + licence, outside development."""
+    if not settings.identity_verification_required:
+        return
+    if (
+        user.email_verified_at is None
+        or user.phone_verified_at is None
+        or user.license_verified_at is None
+        or user.id_document_status != IdDocumentStatus.VERIFIED
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Vérifiez votre téléphone, votre identité et votre permis "
+                "avant de publier un trajet."
+            ),
+        )
+
+
+def require_verified_phone(user: User) -> None:
+    if not settings.identity_verification_required:
+        return
+    if user.phone_verified_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Vérifiez votre numéro de téléphone avant de réserver.",
+        )
