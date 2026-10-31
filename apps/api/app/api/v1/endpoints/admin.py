@@ -110,13 +110,19 @@ async def update_report(
     session: AsyncSession = Depends(get_db_session),
     _admin: User = Depends(require_admin),
 ) -> AdminReport:
-    """Move a report to another moderation state."""
+    """Move a report to another moderation state.
+
+    The transition must be allowed from the current state of the report.
+    """
     report = await session.get(Report, report_id)
     if report is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Signalement introuvable."
         )
-    updated = await admin_service.update_report_status(session, report, payload.status)
+    try:
+        updated = await admin_service.update_report_status(session, report, payload.status)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     return AdminReport.model_validate(updated)
 
 

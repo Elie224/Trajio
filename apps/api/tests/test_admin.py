@@ -4,6 +4,7 @@ The tests run without a database: the session is faked, the behaviour under
 test is the one of the controller and of the service layer.
 """
 
+import inspect
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from uuid import uuid4
@@ -58,6 +59,8 @@ class FakeSession:
     async def scalar(self, _statement):
         if self.scalar_hook is not None:
             hooked = self.scalar_hook(_statement)
+            if inspect.isawaitable(hooked):
+                hooked = await hooked
             if hooked is not None:
                 return hooked
         if self.scalar_results:
@@ -271,6 +274,54 @@ async def test_stats_counts_are_integers_not_null(client, session, admin) -> Non
     assert body["average_rating"] is None
 
 
+async def test_stats_exclude_the_soft_deleted_accounts(client, session, admin) -> None:
+    """The tile and the user list must count the same accounts.
+
+    A soft-deleted account is invisible in the list: counting it in the
+    tile would make the "Utilisateurs" tile larger than the total of the
+    list it summarises.
+    """
+    statements: list[str] = []
+
+    async def _scalar(statement):
+        statements.append(str(statement))
+        return 1
+
+    session.scalar_hook = _scalar
+    response = await client.get("/api/v1/admin/stats")
+    assert response.status_code == 200
+
+    account_counters = statements[:4]
+    assert len(account_counters) == 4
+    for statement in account_counters:
+        assert "deleted_at IS NULL" in statement, statement
+
+
+async def test_stats_and_users_list_count_the_same_accounts(client, session, admin) -> None:
+    """The `users_total` tile equals the `total` of the unfiltered list."""
+    captured: list[str] = []
+
+    async def _scalar(statement):
+        captured.append(str(statement))
+        # The four account counters of the stats, then the total of the list.
+        return 7
+
+    session.scalar_hook = _scalar
+    stats = await client.get("/api/v1/admin/stats")
+    assert stats.status_code == 200
+    assert stats.json()["users_total"] == 7
+
+    session.scalars_results = [[]]
+    users = await client.get("/api/v1/admin/users")
+    assert users.status_code == 200
+    assert users.json()["total"] == 7
+
+    # Both queries filter the deleted accounts.
+    assert "deleted_at IS NULL" in captured[0]
+    # The user list total comes after the eleven counters of the stats.
+    assert "deleted_at IS NULL" in captured[11]
+
+
 # --- Users list ------------------------------------------------------------
 
 
@@ -381,6 +432,100 @@ async def test_report_status_update_rejects_an_invalid_status(client, session, a
         json={"status": "archived"},
     )
     assert response.status_code == 422
+
+
+def _report(status: ReportStatus):
+    now = datetime(2026, 1, 1, tzinfo=UTC)
+    return SimpleNamespace(
+        id=uuid4(),
+        reporter_id=uuid4(),
+        reported_user_id=uuid4(),
+        booking_id=None,
+        reason="safety",
+        details="detail",
+        status=status,
+        created_at=now,
+        updated_at=now,
+    )
+
+
+@pytest.mark.parametrize(
+    ("current", "target"),
+    [
+        (ReportStatus.OPEN, ReportStatus.REVIEWING),
+        (ReportStatus.OPEN, ReportStatus.RESOLVED),
+        (ReportStatus.OPEN, ReportStatus.DISMISSED),
+        (ReportStatus.REVIEWING, ReportStatus.RESOLVED),
+        (ReportStatus.REVIEWING, ReportStatus.DISMISSED),
+    ],
+)
+async def test_report_status_update_accepts_the_allowed_transitions(
+    client, session, admin, current, target
+) -> None:
+    report = _report(current)
+
+    async def _get(_model, _pk):
+        return report
+
+    session.get = _get
+    response = await client.patch(
+        f"/api/v1/admin/reports/{report.id}", json={"status": target.value}
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == target.value
+    assert session.committed == 1
+
+
+@pytest.mark.parametrize(
+    ("current", "target"),
+    [
+        # A closed report must not be re-opened.
+        (ReportStatus.RESOLVED, ReportStatus.OPEN),
+        (ReportStatus.DISMISSED, ReportStatus.OPEN),
+        (ReportStatus.RESOLVED, ReportStatus.REVIEWING),
+        (ReportStatus.DISMISSED, ReportStatus.REVIEWING),
+        # A closed report is terminal.
+        (ReportStatus.RESOLVED, ReportStatus.RESOLVED),
+        (ReportStatus.DISMISSED, ReportStatus.DISMISSED),
+        (ReportStatus.RESOLVED, ReportStatus.DISMISSED),
+        # The review step cannot be skipped backwards.
+        (ReportStatus.REVIEWING, ReportStatus.OPEN),
+    ],
+)
+async def test_report_status_update_rejects_the_forbidden_transitions(
+    client, session, admin, current, target
+) -> None:
+    """The transition rule is on the server, not only in the front-end."""
+    report = _report(current)
+
+    async def _get(_model, _pk):
+        return report
+
+    session.get = _get
+    response = await client.patch(
+        f"/api/v1/admin/reports/{report.id}", json={"status": target.value}
+    )
+    assert response.status_code == 409
+    # The status of the report is left untouched.
+    assert report.status == current
+    assert session.committed == 0
+
+
+async def test_report_transition_rule_matches_the_dashboard_actions() -> None:
+    """The server allows exactly what the dashboard offers."""
+    from app.services.admin import REPORT_STATUS_TRANSITIONS
+
+    # The front-end offers, for an open report: reviewing, resolved, dismissed.
+    assert REPORT_STATUS_TRANSITIONS[ReportStatus.OPEN] == frozenset(
+        {ReportStatus.REVIEWING, ReportStatus.RESOLVED, ReportStatus.DISMISSED}
+    )
+    # For a report under review: resolved, dismissed.
+    assert REPORT_STATUS_TRANSITIONS[ReportStatus.REVIEWING] == frozenset(
+        {ReportStatus.RESOLVED, ReportStatus.DISMISSED}
+    )
+    # A closed report offers nothing.
+    assert REPORT_STATUS_TRANSITIONS[ReportStatus.RESOLVED] == frozenset()
+    assert REPORT_STATUS_TRANSITIONS[ReportStatus.DISMISSED] == frozenset()
 
 
 # --- Sanctions -------------------------------------------------------------

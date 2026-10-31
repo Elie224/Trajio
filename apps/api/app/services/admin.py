@@ -23,6 +23,19 @@ from app.schemas.admin import AdminStats
 # Reports that still need an administrator decision.
 OPEN_REPORT_STATUSES = (ReportStatus.OPEN, ReportStatus.REVIEWING)
 
+# Allowed transitions of a report. A resolved or dismissed report is closed:
+# re-opening it would silently revive a case an administrator already closed.
+# The rule lives here, on the server: the front-end only hides the buttons
+# that are not offered, which is a comfort and not a protection.
+REPORT_STATUS_TRANSITIONS: dict[ReportStatus, frozenset[ReportStatus]] = {
+    ReportStatus.OPEN: frozenset(
+        {ReportStatus.REVIEWING, ReportStatus.RESOLVED, ReportStatus.DISMISSED}
+    ),
+    ReportStatus.REVIEWING: frozenset({ReportStatus.RESOLVED, ReportStatus.DISMISSED}),
+    ReportStatus.RESOLVED: frozenset(),
+    ReportStatus.DISMISSED: frozenset(),
+}
+
 # Escape character of the LIKE patterns. `%` and `_` are wildcards in SQL:
 # left as they are, a search box holding a single `%` returns the whole
 # directory and forces a full table scan.
@@ -76,16 +89,31 @@ async def bootstrap_admin(session: AsyncSession, email: str) -> User | None:
 
 
 async def get_admin_stats(session: AsyncSession) -> AdminStats:
-    """Aggregate counters for the dashboard tiles."""
-    users_total = await session.scalar(select(func.count()).select_from(User))
+    """Aggregate counters for the dashboard tiles.
+
+    The account counters exclude the soft-deleted accounts, exactly like the
+    user list: the "Utilisateurs" tile and the `total` of `GET /admin/users`
+    must come from the same set, otherwise the tile can show more accounts
+    than the list it is supposed to summarise.
+    """
+    live_accounts = User.deleted_at.is_(None)
+    users_total = await session.scalar(
+        select(func.count()).select_from(User).where(live_accounts)
+    )
     users_active = await session.scalar(
-        select(func.count()).select_from(User).where(User.status == UserStatus.ACTIVE)
+        select(func.count())
+        .select_from(User)
+        .where(live_accounts, User.status == UserStatus.ACTIVE)
     )
     users_pending = await session.scalar(
-        select(func.count()).select_from(User).where(User.status == UserStatus.PENDING)
+        select(func.count())
+        .select_from(User)
+        .where(live_accounts, User.status == UserStatus.PENDING)
     )
     drivers_total = await session.scalar(
-        select(func.count()).select_from(User).where(User.role == UserRole.DRIVER)
+        select(func.count())
+        .select_from(User)
+        .where(live_accounts, User.role == UserRole.DRIVER)
     )
     trips_total = await session.scalar(select(func.count()).select_from(Trip))
     trips_scheduled = await session.scalar(
@@ -122,7 +150,13 @@ def build_user_filters(
     role: UserRole | None,
     query: str | None,
 ) -> list:
-    """Filters shared by the user list and its total count."""
+    """Filters shared by the user list and its total count.
+
+    The search covers the email, the name and the phone number: an
+    administrator often receives a complaint quoting a phone number. The
+    search stays on the administration surface, behind the admin role and
+    the read quota.
+    """
     filters = [User.deleted_at.is_(None)]
     if status is not None:
         filters.append(User.status == status)
@@ -255,7 +289,17 @@ async def update_report_status(
     report: Report,
     new_status: ReportStatus,
 ) -> Report:
-    """Move a report to another moderation state."""
+    """Move a report to another moderation state.
+
+    The transition must be allowed from the current state, otherwise a
+    closed report could be re-opened by a direct call to the API.
+    """
+    allowed = REPORT_STATUS_TRANSITIONS.get(report.status, frozenset())
+    if new_status not in allowed:
+        raise ValueError(
+            f"Transition de signalement invalide : {report.status.value} -> {new_status.value}."
+        )
+
     report.status = new_status
     await session.commit()
     await session.refresh(report)
