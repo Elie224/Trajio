@@ -157,7 +157,7 @@ meme transaction : soit les deux reussissent, soit aucune.
 | Notifications | `/notifications` | liste, `{id}/read` |
 | Evaluations | `/reviews` | liste publique, creation post-trajet |
 | Signalements | `/reports` | creation, suivi par le signaleur |
-| Administration | `/admin` | moderation, verification, statistiques |
+| Administration | `/admin` | `GET /stats`, `GET /users`, `GET /reports`, `PATCH /reports/{id}`, `PATCH /users/{id}/status`, `PATCH /users/{id}/identity` **implémente** |
 
 Chaque module enregistre son routeur dans `app/api/v1/router.py`. Les
 controleurs restent sans logique : ils deleguent a `app/services/`.

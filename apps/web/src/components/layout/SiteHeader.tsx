@@ -20,6 +20,8 @@ const NAV_ITEMS = [
   { href: "/messages", label: "Messages" },
 ] as const;
 const ACCOUNT_ITEM = { href: "/account", label: "Mon compte" } as const;
+/** Only shown to administrators; the bottom tab bar stays passenger-oriented. */
+const ADMIN_ITEM = { href: "/admin", label: "Admin" } as const;
 
 function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(href + "/");
@@ -34,7 +36,12 @@ export function SiteHeader() {
   const pathname = usePathname();
   const session = useSession();
   const isLoggedIn = session.status === "authenticated";
-  const navItems = isLoggedIn ? [...NAV_ITEMS, ACCOUNT_ITEM] : NAV_ITEMS;
+  const isAdmin = isLoggedIn && session.user.role === "admin";
+  const navItems = isAdmin
+    ? [...NAV_ITEMS, ACCOUNT_ITEM, ADMIN_ITEM]
+    : isLoggedIn
+      ? [...NAV_ITEMS, ACCOUNT_ITEM]
+      : NAV_ITEMS;
   const closeMenu = () => setIsMenuOpen(false);
 
   return (

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardTitle } from "@/components/ui/Card";
 import { Container } from "@/components/ui/Container";
 import { ServiceError } from "@/components/ui/ServiceError";
+import { TabPanel, Tabs } from "@/components/ui/Tabs";
 import { SessionStatus } from "@/features/auth/SessionStatus";
 import { useSession } from "@/features/auth/useSession";
 import { userFacingError } from "@/lib/errors";
@@ -154,36 +155,16 @@ export function AccountDashboard() {
           </p>
         </div>
 
-        <div
-          role="tablist"
-          aria-label="Sections du compte"
-          className="flex flex-wrap gap-1 rounded-full bg-brand-50 p-1"
-        >
-          {TABS.map((item) => {
-            const selected = tab === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                role="tab"
-                id={`dashboard-tab-${item.id}`}
-                aria-selected={selected}
-                aria-controls={`dashboard-panel-${item.id}`}
-                tabIndex={selected ? 0 : -1}
-                onClick={() => setTab(item.id)}
-                className={
-                  "min-h-11 rounded-full px-4 text-sm font-medium " +
-                  (selected ? "bg-primary-strong text-white" : "text-page-muted hover:text-page-text")
-                }
-              >
-                {item.label}
-              </button>
-            );
-          })}
-        </div>
+        <Tabs
+          items={TABS}
+          activeId={tab}
+          onChange={(id) => setTab(id as Tab)}
+          idPrefix="account"
+          label="Sections du compte"
+          className="mb-5"
+        />
 
-        {tab === "profile" && (
-          <div role="tabpanel" id="dashboard-panel-profile" aria-labelledby="dashboard-tab-profile">
+        <TabPanel idPrefix="account" tabId="profile" active={tab === "profile"}>
             <Card>
               <div className="mb-4 flex items-center justify-between">
                 <CardTitle>Mon profil</CardTitle>
@@ -212,14 +193,12 @@ export function AccountDashboard() {
                 </div>
               </dl>
             </Card>
-          </div>
-        )}
+          </TabPanel>
 
-        {tab === "vehicles" && (
-          <div
-            role="tabpanel"
-            id="dashboard-panel-vehicles"
-            aria-labelledby="dashboard-tab-vehicles"
+          <TabPanel
+            idPrefix="account"
+            tabId="vehicles"
+            active={tab === "vehicles"}
             className="grid gap-5"
           >
             <Card>
@@ -338,11 +317,9 @@ export function AccountDashboard() {
                 </ul>
               )}
             </Card>
-          </div>
-        )}
+          </TabPanel>
 
-        {tab === "trips" && (
-          <div role="tabpanel" id="dashboard-panel-trips" aria-labelledby="dashboard-tab-trips">
+          <TabPanel idPrefix="account" tabId="trips" active={tab === "trips"}>
             <Card>
               <CardTitle>Mes trajets publiés</CardTitle>
               {data.trips.length === 0 ? (
@@ -385,14 +362,12 @@ export function AccountDashboard() {
                 </ul>
               )}
             </Card>
-          </div>
-        )}
+          </TabPanel>
 
-        {tab === "bookings" && (
-          <div
-            role="tabpanel"
-            id="dashboard-panel-bookings"
-            aria-labelledby="dashboard-tab-bookings"
+          <TabPanel
+            idPrefix="account"
+            tabId="bookings"
+            active={tab === "bookings"}
             className="grid gap-5"
           >
             <Card>
@@ -521,9 +496,8 @@ export function AccountDashboard() {
                 </ul>
               )}
             </Card>
-          </div>
-        )}
-      </Container>
+          </TabPanel>
+        </Container>
     </section>
   );
 }
