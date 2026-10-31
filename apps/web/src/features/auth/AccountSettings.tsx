@@ -1,70 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { buttonClasses } from "@/components/ui/Button";
-import { usePathname } from "next/navigation";
-
-import { Card, CardBody, CardTitle } from "@/components/ui/Card";
 import { Container } from "@/components/ui/Container";
 import { AccountDataSettings } from "@/features/auth/AccountDataSettings";
-import { fetchCurrentUser, isUnauthenticated } from "@/lib/api";
-import { loginHref } from "@/lib/safe-redirect";
+import { SessionStatus } from "@/features/auth/SessionStatus";
+import { useSession } from "@/features/auth/useSession";
 
-type State = { status: "loading" } | { status: "anonymous" } | { status: "ready" } | { status: "error" };
-
-/** /account: personal data export and account deletion, signed-in users only. */
 export function AccountSettings() {
-  const [state, setState] = useState<State>({ status: "loading" });
-  const pathname = usePathname();
+  const session = useSession();
 
-  useEffect(() => {
-    let cancelled = false;
-    fetchCurrentUser()
-      .then(() => {
-        if (!cancelled) setState({ status: "ready" });
-      })
-      .catch((error: unknown) => {
-        if (cancelled) return;
-        setState({ status: isUnauthenticated(error) ? "anonymous" : "error" });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  if (state.status === "loading") {
+  if (session.status !== "authenticated") {
     return (
-      <section className="page-section">
-        <Container>Chargement de votre compte…</Container>
-      </section>
-    );
-  }
-
-  if (state.status !== "ready") {
-    return (
-      <section className="page-section">
-        <Container className="max-w-xl">
-          <Card>
-            <CardTitle>{state.status === "anonymous" ? "Connexion requise" : "Erreur"}</CardTitle>
-            <CardBody>
-              {state.status === "anonymous"
-                ? "Connectez-vous pour gérer votre compte."
-                : "Impossible de charger votre compte pour le moment."}
-            </CardBody>
-            {state.status === "anonymous" && (
-              <div className="mt-4 flex gap-2">
-                <Link
-                  href={loginHref(pathname)}
-                  className={buttonClasses("primary")}
-                >
-                  Se connecter
-                </Link>
-              </div>
-            )}
-          </Card>
-        </Container>
-      </section>
+      <SessionStatus
+        session={session}
+        loadingLabel="Chargement de votre compte…"
+        anonymousBody="Connectez-vous pour gérer votre compte."
+      />
     );
   }
 

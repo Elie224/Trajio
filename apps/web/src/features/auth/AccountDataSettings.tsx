@@ -198,6 +198,7 @@ function DeleteAccountDialog({ open, onClose }: { open: boolean; onClose: () => 
         // Storage unavailable: the redirect still happens.
       }
       // Full navigation drops every in-memory auth state (header, dashboard).
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- hard reload, not in-app routing
       window.location.assign("/");
       return;
     } catch (err: unknown) {

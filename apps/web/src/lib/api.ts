@@ -74,6 +74,9 @@ export type UserProfile = {
   role: "passenger" | "driver" | "admin";
   status: "pending" | "active" | "suspended" | "banned";
   email_verified_at: string | null;
+  phone_verified_at: string | null;
+  license_verified_at: string | null;
+  id_document_status: "pending" | "verified" | "rejected";
   created_at: string;
   updated_at: string;
 };
@@ -445,5 +448,128 @@ export async function declineBooking(bookingId: string): Promise<{ message: stri
 export async function cancelBooking(bookingId: string): Promise<{ message: string }> {
   return fetchJson<{ message: string }>(`/api/v1/bookings/${bookingId}/cancel`, {
     method: "POST",
+  });
+}
+
+export type ConversationPeer = {
+  id: string;
+  first_name: string;
+  last_name: string;
+};
+
+export type ChatMessage = {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  body: string;
+  created_at: string;
+};
+
+export type ConversationSummary = {
+  id: string;
+  booking_id: string;
+  trip_id: string;
+  trip_origin_label: string;
+  trip_destination_label: string;
+  booking_status: string;
+  can_send: boolean;
+  peer: ConversationPeer;
+  last_message: ChatMessage | null;
+  unread_count: number;
+  updated_at: string;
+};
+
+export type ConversationDetail = ConversationSummary & {
+  messages: ChatMessage[];
+};
+
+export type Review = {
+  id: string;
+  booking_id: string;
+  trip_id: string;
+  author_id: string;
+  subject_id: string;
+  rating: number;
+  comment: string | null;
+  created_at: string;
+};
+
+export type ReportReason = "safety" | "harassment" | "no_show" | "vehicle" | "payment" | "other";
+
+export async function fetchConversations(): Promise<ConversationSummary[]> {
+  const response = await fetchJson<{ items: ConversationSummary[] }>("/api/v1/messages/conversations");
+  return response.items;
+}
+
+export async function openConversation(bookingId: string): Promise<ConversationDetail> {
+  return fetchJson<ConversationDetail>("/api/v1/messages/conversations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ booking_id: bookingId }),
+  });
+}
+
+export async function fetchConversation(conversationId: string): Promise<ConversationDetail> {
+  return fetchJson<ConversationDetail>(`/api/v1/messages/conversations/${conversationId}`);
+}
+
+export async function sendMessage(conversationId: string, body: string): Promise<ChatMessage> {
+  return fetchJson<ChatMessage>(`/api/v1/messages/conversations/${conversationId}/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ body }),
+  });
+}
+
+export async function markConversationRead(conversationId: string): Promise<{ message: string }> {
+  return fetchJson<{ message: string }>(`/api/v1/messages/conversations/${conversationId}/read`, {
+    method: "POST",
+  });
+}
+
+export async function fetchMyReviews(): Promise<Review[]> {
+  const response = await fetchJson<{ items: Review[] }>("/api/v1/reviews/mine");
+  return response.items;
+}
+
+export async function createReview(payload: {
+  bookingId: string;
+  rating: number;
+  comment?: string;
+}): Promise<Review> {
+  return fetchJson<Review>("/api/v1/reviews", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      booking_id: payload.bookingId,
+      rating: payload.rating,
+      comment: payload.comment?.trim() || null,
+    }),
+  });
+}
+
+export async function createReport(payload: {
+  reportedUserId: string;
+  reason: ReportReason;
+  bookingId?: string;
+  details?: string;
+}): Promise<unknown> {
+  return fetchJson<unknown>("/api/v1/reports", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      reported_user_id: payload.reportedUserId,
+      reason: payload.reason,
+      booking_id: payload.bookingId ?? null,
+      details: payload.details?.trim() || null,
+    }),
+  });
+}
+
+export async function blockUser(userId: string): Promise<unknown> {
+  return fetchJson<unknown>("/api/v1/blocks", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_id: userId }),
   });
 }
