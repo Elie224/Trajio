@@ -47,6 +47,15 @@ test("/reset-password strips token and sends Referrer-Policy: no-referrer", asyn
   }
 });
 
+test("anonymous /messages shows 'Connexion requise'", async ({ browser }) => {
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await page.goto("/messages");
+  await expect(page.getByText("Connexion requise").first()).toBeVisible();
+  await expect(page.getByPlaceholder("Écrire un message")).toHaveCount(0);
+  await ctx.close();
+});
+
 test("anonymous /account shows 'Connexion requise' and no data", async ({ browser }) => {
   const ctx = await browser.newContext();
   const page = await ctx.newPage();

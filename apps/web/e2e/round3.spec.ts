@@ -70,7 +70,7 @@ test("API down: messages shown (no raw 'Failed to fetch')", async ({ page }) => 
   await page.locator('form button[type="submit"]').click();
   await page.waitForTimeout(1500);
   await grab("forgot-password");
-  for (const p of ["/account", "/trips", "/search"]) {
+  for (const p of ["/account", "/trips", "/search", "/messages"]) {
     await page.goto(p);
     await page.waitForTimeout(2000);
     await grab(p);

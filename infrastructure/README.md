@@ -24,6 +24,8 @@ Pour modifier le schema d'une base existante, il faut passer par une migration
 Alembic : elle est versionnee, testee, et se rejoue a l'identique sur un autre
 environnement. Un script d'initialisation n'a aucune de ces proprietes.
 
+La pile Compose inclut aussi Redis (limites de debit partagees entre workers).
+
 ## Ajouts prevus
 
 - Reverse proxy et certificats TLS.

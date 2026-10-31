@@ -165,19 +165,20 @@ la valeur. Pour un ajustement ponctuel en developpement, le fichier
 
 ## Migrations
 
-Aucune migration n'existe encore : le schema est specifie dans
-[database.md](./docs/database.md) et sera genere apres sa validation.
+Les revisions Alembic sont dans `apps/api/alembic/versions/`. Le schema cible
+est decrit dans [database.md](./docs/database.md). Les migrations ne s'appliquent
+jamais toutes seules au demarrage.
 
 ```powershell
 cd apps/api
 
-# creer la premiere revision
-.\.venv\Scripts\python.exe -m alembic revision --autogenerate -m "initial schema"
-
-# appliquer
+# appliquer jusqu'a la revision courante
 .\.venv\Scripts\python.exe -m alembic upgrade head
 
-# annuler
+# creer une nouvelle revision apres un changement de modele
+.\.venv\Scripts\python.exe -m alembic revision --autogenerate -m "describe change"
+
+# annuler la derniere revision
 .\.venv\Scripts\python.exe -m alembic downgrade -1
 ```
 
@@ -194,6 +195,6 @@ Alembic lit la meme configuration que l'API : il n'y a pas d'URL a dupliquer.
 
 ## Prochaine etape
 
-La fondation est en place. Le jalon 1 est la validation du modele de donnees,
-puis l'ecriture des modeles SQLAlchemy et de la premiere migration. Voir
+Auth, vehicules, trajets, recherche et reservations sont deja en place.
+Les prochains jalons (messagerie, avis, moderation) sont dans
 [roadmap.md](./docs/roadmap.md).

@@ -1,12 +1,13 @@
 # Securite, RGPD et reglementation
 
-> **Statut : partiellement en place.** Audit du 14/10/2026 corrige : validation des
-> secrets au demarrage, Argon2id, politique 12 caracteres + liste noire, cookies
-> `HttpOnly`/`SameSite=Strict`, limitation de debit (IP + compte), anti-enumeration,
-> jeton de reinitialisation a usage unique, revocation des acces apres changement de
-> mot de passe, recherche authentifiee avec coordonnees arrondies, anonymisation a la
-> suppression et export des donnees, en-tetes de securite. Restent a faire : envoi
-> d'emails, verification telephone/identite, CSP cote web, purge automatique.
+> **Statut : durci.** Jeton de reset jamais renvoye en HTTP (e-mail SMTP ou
+> ignorer), verification e-mail hors developpement, Redis obligatoire hors
+> developpement, `ALLOWED_HOSTS`, quotas trajets/reservations/vehicules/recherche,
+> verification identite conducteur / telephone passager hors developpement,
+> export RGPD des messages recus, purge des refresh tokens au demarrage hors
+> dev, CSP web sans `unsafe-inline` en production. La verification d'identite
+> reelle (prestataire) n'est pas encore branchee : en production la publication
+> de trajet est refusee tant que les champs ne sont pas `verified`.
 
 ## 1. Gestion des secrets
 

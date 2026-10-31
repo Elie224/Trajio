@@ -56,10 +56,11 @@ Result 'fichier compose.yaml invalide' ($LASTEXITCODE -eq 0)
 Step 'Endpoint /health'
 try {
     $health = Invoke-RestMethod -Uri 'http://127.0.0.1:8000/health' -TimeoutSec 5
-    if ($health.status -eq 'ok') {
+    $healthOk = $health.status -eq 'ok'
+    if ($healthOk) {
         Write-Host ('    {0} v{1} [{2}]' -f $health.service, $health.version, $health.environment)
     }
-    Result 'reponse inattendue' ($health.status -ne 'ok')
+    Result 'reponse inattendue' $healthOk
 } catch {
     Write-Host ('    API non joignable ({0})' -f $_.Exception.Message) -ForegroundColor Yellow
     Write-Host '    Lancez .\scripts\start-api.ps1 puis relancez cette verification.' -ForegroundColor Yellow
