@@ -1,6 +1,6 @@
 /**
  * Recent searches for /search, kept only in this browser (localStorage).
- * No geocoding service exists yet, so this is the only suggestion source.
+ * Shown when address fields are empty, alongside live IGN suggestions while typing.
  */
 
 export type RecentSearch = { pickup: string; dropoff: string };

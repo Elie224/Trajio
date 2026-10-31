@@ -24,7 +24,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_db_session
-from app.core.config import REPO_ROOT, settings
+from app.core.config import settings
 from app.core.mail import deliver_email_verification, deliver_password_reset
 from app.core.rate_limit import account_limiter, limiter
 from app.core.security import (
@@ -540,33 +540,6 @@ async def forgot_password(
             extra={"pwd": password_fingerprint(user.password_hash)},
         )
         background_tasks.add_task(deliver_password_reset, user.email, token)
-    #region agent log
-    try:
-        import json
-        from pathlib import Path
-
-        Path(REPO_ROOT / "debug-ec2363.log").open("a", encoding="utf-8").write(
-            json.dumps(
-                {
-                    "sessionId": "ec2363",
-                    "runId": "post-fix",
-                    "hypothesisId": "A",
-                    "location": "auth.py:forgot_password",
-                    "message": "forgot-password response token policy",
-                    "data": {
-                        "tokenInHttp": bool(
-                            settings.is_development and settings.EXPOSE_DEV_RESET_TOKEN
-                        ),
-                        "userFound": user is not None,
-                    },
-                    "timestamp": int(datetime.now(UTC).timestamp() * 1000),
-                }
-            )
-            + "\n"
-        )
-    except Exception:
-        pass
-    #endregion
     if settings.is_development and settings.EXPOSE_DEV_RESET_TOKEN:
         return ForgotPasswordResponse(message=GENERIC_FORGOT_MESSAGE, reset_token=token)
     return ForgotPasswordResponse(message=GENERIC_FORGOT_MESSAGE)

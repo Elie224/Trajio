@@ -31,6 +31,8 @@ export function HomeSearchPanel() {
   const pickRecent = (entry: RecentSearch) => {
     setPickup(entry.pickup);
     setDropoff(entry.dropoff);
+    setPickupPoint(undefined);
+    setDropoffPoint(undefined);
   };
   const clearRecent = () => {
     setRecent([]);
@@ -45,15 +47,20 @@ export function HomeSearchPanel() {
   return (
     <div className="grid gap-8 lg:grid-cols-[1.05fr_1fr]">
       <div>
+        <p className="mb-4 inline-flex items-center gap-2 rounded-full bg-accent-soft px-3 py-1.5 text-sm font-medium text-page-text">
+          <span className="h-2 w-2 rounded-full bg-primary-strong" aria-hidden="true" />
+          Covoiturage de proximité
+        </p>
         <h1 className="text-4xl font-bold leading-tight tracking-tight text-page-text sm:text-5xl">
-          Même direction, partageons le trajet.
+          Même direction,{" "}
+          <span className="text-primary-strong">partageons le trajet.</span>
         </h1>
         <p className="mt-4 max-w-2xl text-base leading-7 text-page-muted sm:text-lg">
           Trajio rapproche les conducteurs ayant des places libres et les passagers qui vont dans
           la même direction, même lorsque les points de départ et d&apos;arrivée diffèrent.
         </p>
 
-        <form action="/search" method="get" className="surface mt-7 grid gap-3 p-4 sm:grid-cols-2 sm:p-5">
+        <form action="/search" method="get" className="surface mt-7 grid gap-3 border-t-4 border-t-accent p-4 sm:grid-cols-2 sm:p-5">
           <AddressCombobox
             id="home-pickup"
             name="pickup"
@@ -61,7 +68,11 @@ export function HomeSearchPanel() {
             placeholder="Adresse de départ"
             role="pickup"
             value={pickup}
-            onChange={setPickup}
+            onChange={(value) => {
+              setPickup(value);
+              setPickupPoint(undefined);
+            }}
+            onSelectPlace={(place) => setPickupPoint([place.longitude, place.latitude])}
             recent={recent}
             onPickRecent={pickRecent}
             onClearRecent={clearRecent}
@@ -73,7 +84,11 @@ export function HomeSearchPanel() {
             placeholder="Adresse d'arrivée"
             role="dropoff"
             value={dropoff}
-            onChange={setDropoff}
+            onChange={(value) => {
+              setDropoff(value);
+              setDropoffPoint(undefined);
+            }}
+            onSelectPlace={(place) => setDropoffPoint([place.longitude, place.latitude])}
             recent={recent}
             onPickRecent={pickRecent}
             onClearRecent={clearRecent}
@@ -127,7 +142,7 @@ export function HomeSearchPanel() {
         </form>
       </div>
 
-      <div className="surface p-3">
+      <div className="surface border-t-4 border-t-primary-strong p-3">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-2">
           <p className="text-xs font-medium text-page-muted">
             Cliquez sur la carte pour placer {placing === "pickup" ? "le départ" : "l'arrivée"}.

@@ -8,15 +8,13 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardTitle } from "@/components/ui/Card";
 import { Container } from "@/components/ui/Container";
-import { login, register } from "@/lib/api";
+import { register } from "@/lib/api";
 import { SERVICE_UNAVAILABLE_MESSAGE, userFacingError } from "@/lib/errors";
-import { resetSession } from "@/features/auth/session";
 
 export function SignupForm() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   return (
     <section className="page-section">
@@ -31,7 +29,6 @@ export function SignupForm() {
               event.preventDefault();
               setIsSubmitting(true);
               setError(null);
-              setSuccess(null);
               const formData = new FormData(event.currentTarget);
               const password = String(formData.get("password") ?? "");
               const passwordConfirm = String(formData.get("password_confirm") ?? "");
@@ -48,17 +45,11 @@ export function SignupForm() {
                   email: String(formData.get("email") ?? ""),
                   password,
                 });
-                if (result.verification_required) {
-                  setSuccess(result.message);
-                } else {
-                  await login(String(formData.get("email") ?? ""), password);
-                  setSuccess("Compte créé. Connexion réussie.");
-                }
-                setTimeout(() => {
-                  resetSession();
-                  router.push("/trips");
-                  router.refresh();
-                }, 350);
+                router.replace(
+                  result.verification_required
+                    ? "/login?registration=verify-email"
+                    : "/login?registration=complete",
+                );
               } catch (err: unknown) {
                 setError(userFacingError(err, "Impossible de créer le compte."));
               } finally {
@@ -129,7 +120,6 @@ export function SignupForm() {
                 </p>
               )
             )}
-            {success && <p className="md:col-span-2 text-sm text-emerald-700">{success}</p>}
             <div className="md:col-span-2">
               <Button type="submit" disabled={isSubmitting} className="w-full">
                 {isSubmitting ? "Création..." : "Créer mon compte"}

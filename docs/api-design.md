@@ -162,6 +162,13 @@ meme transaction : soit les deux reussissent, soit aucune.
 Chaque module enregistre son routeur dans `app/api/v1/router.py`. Les
 controleurs restent sans logique : ils deleguent a `app/services/`.
 
+La recherche textuelle de lieux ignore la casse et les séparateurs :
+`saint denis` correspond à `Saint-Denis`. Lorsqu'un point de départ ou
+d'arrivée est fourni, le filtre textuel correspondant est remplacé par le
+matching géographique ; le libellé complet du géocodeur ne doit pas exclure
+un trajet proche. La date, les places et le statut restent filtrants :
+aucun trajet annulé ou passé n'est renvoyé.
+
 ## 9. Pagination
 
 ```http

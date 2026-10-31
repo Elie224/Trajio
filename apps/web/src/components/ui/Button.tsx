@@ -30,8 +30,7 @@ export function buttonClasses(variant: Variant = "primary", className = ""): str
   );
 }
 
-/** 48px high, radius 12, full width on mobile, visible primary focus ring.
- * Disabled: #D1FAE5 + #065F46 (red-100 + red-800 for danger), >= 4.5:1, no opacity. */
+/** 48px target, visible focus ring and high-contrast disabled states without opacity. */
 export function Button({ variant = "primary", className = "", children, ref, ...rest }: ButtonProps) {
   return (
     <button

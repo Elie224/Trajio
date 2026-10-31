@@ -68,6 +68,8 @@ export function SearchWorkspace() {
   );
   const [pickup, setPickup] = useState(initialPickup);
   const [dropoff, setDropoff] = useState(initialDropoff);
+  const [searchPickupPoint, setSearchPickupPoint] = useState<[number, number]>();
+  const [searchDropoffPoint, setSearchDropoffPoint] = useState<[number, number]>();
   const [recent, setRecent] = useState<RecentSearch[]>([]);
   const [sheetExpanded, setSheetExpanded] = useState(false);
   const dateRef = useRef<HTMLInputElement>(null);
@@ -135,6 +137,13 @@ export function SearchWorkspace() {
   const pickRecent = (entry: RecentSearch) => {
     setPickup(entry.pickup);
     setDropoff(entry.dropoff);
+    setSearchPickupPoint(undefined);
+    setSearchDropoffPoint(undefined);
+    setState({ status: "idle", items: [] });
+    if (pickupLatRef.current) pickupLatRef.current.value = "";
+    if (pickupLngRef.current) pickupLngRef.current.value = "";
+    if (dropoffLatRef.current) dropoffLatRef.current.value = "";
+    if (dropoffLngRef.current) dropoffLngRef.current.value = "";
   };
   const clearRecent = () => {
     setRecent([]);
@@ -156,15 +165,15 @@ export function SearchWorkspace() {
   );
 
   const pickupPoint = useMemo<[number, number] | undefined>(
-    () => (selectedRide ? [Number(selectedRide.origin_lng), Number(selectedRide.origin_lat)] : undefined),
-    [selectedRide],
+    () => (selectedRide ? [Number(selectedRide.origin_lng), Number(selectedRide.origin_lat)] : searchPickupPoint),
+    [selectedRide, searchPickupPoint],
   );
   const dropoffPoint = useMemo<[number, number] | undefined>(
     () =>
       selectedRide
         ? [Number(selectedRide.destination_lng), Number(selectedRide.destination_lat)]
-        : undefined,
-    [selectedRide],
+        : searchDropoffPoint,
+    [selectedRide, searchDropoffPoint],
   );
   const estimate = useMemo(
     () => (pickupPoint && dropoffPoint ? estimateTrip(pickupPoint, dropoffPoint) : null),
@@ -295,7 +304,18 @@ export function SearchWorkspace() {
                 placeholder="Ex. Saint-Denis"
                 role="pickup"
                 value={pickup}
-                onChange={setPickup}
+                onChange={(value) => {
+                  setPickup(value);
+                  setSearchPickupPoint(undefined);
+                  setState({ status: "idle", items: [] });
+                  if (pickupLatRef.current) pickupLatRef.current.value = "";
+                  if (pickupLngRef.current) pickupLngRef.current.value = "";
+                }}
+                onSelectPlace={(place) => {
+                  setSearchPickupPoint([place.longitude, place.latitude]);
+                  if (pickupLatRef.current) pickupLatRef.current.value = String(place.latitude);
+                  if (pickupLngRef.current) pickupLngRef.current.value = String(place.longitude);
+                }}
                 recent={recent}
                 onPickRecent={pickRecent}
                 onClearRecent={clearRecent}
@@ -307,7 +327,18 @@ export function SearchWorkspace() {
                 placeholder="Ex. Paris"
                 role="dropoff"
                 value={dropoff}
-                onChange={setDropoff}
+                onChange={(value) => {
+                  setDropoff(value);
+                  setSearchDropoffPoint(undefined);
+                  setState({ status: "idle", items: [] });
+                  if (dropoffLatRef.current) dropoffLatRef.current.value = "";
+                  if (dropoffLngRef.current) dropoffLngRef.current.value = "";
+                }}
+                onSelectPlace={(place) => {
+                  setSearchDropoffPoint([place.longitude, place.latitude]);
+                  if (dropoffLatRef.current) dropoffLatRef.current.value = String(place.latitude);
+                  if (dropoffLngRef.current) dropoffLngRef.current.value = String(place.longitude);
+                }}
                 recent={recent}
                 onPickRecent={pickRecent}
                 onClearRecent={clearRecent}
@@ -318,6 +349,15 @@ export function SearchWorkspace() {
               onClick={() => {
                 setPickup(dropoff);
                 setDropoff(pickup);
+                setSearchPickupPoint(searchDropoffPoint);
+                setSearchDropoffPoint(searchPickupPoint);
+                setState({ status: "idle", items: [] });
+                const oldLat = pickupLatRef.current?.value ?? "";
+                const oldLng = pickupLngRef.current?.value ?? "";
+                if (pickupLatRef.current) pickupLatRef.current.value = dropoffLatRef.current?.value ?? "";
+                if (pickupLngRef.current) pickupLngRef.current.value = dropoffLngRef.current?.value ?? "";
+                if (dropoffLatRef.current) dropoffLatRef.current.value = oldLat;
+                if (dropoffLngRef.current) dropoffLngRef.current.value = oldLng;
               }}
               aria-label="Inverser départ et destination"
               className="absolute right-4 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-page-border bg-white text-primary-strong shadow-card hover:bg-brand-50"

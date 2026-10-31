@@ -1,35 +1,9 @@
 import type { NextConfig } from "next";
 
-import { resolveApiBaseUrl } from "./src/lib/env";
-
-const isDev = process.env.NODE_ENV !== "production";
-
-/** Origin of the FastAPI backend (validated in src/lib/env.ts, throws in production if invalid). */
-function apiOrigin(): string {
-  return new URL(resolveApiBaseUrl()).origin;
-}
-
-/** Raster tiles used by OSM_RASTER_STYLE (src/lib/map/style.ts). */
-const TILE_HOSTS = ["https://tile.openstreetmap.org"];
-
-const csp = [
-  "default-src 'self'",
-  `script-src 'self'${isDev ? " 'unsafe-inline' 'unsafe-eval'" : ""}`,
-  "style-src 'self' 'unsafe-inline'",
-  `img-src 'self' data: blob: ${TILE_HOSTS.join(" ")}`,
-  "font-src 'self' data:",
-  `connect-src 'self' ${apiOrigin()} ${TILE_HOSTS.join(" ")}${isDev ? " ws: wss:" : ""}`,
-  "worker-src 'self' blob:",
-  "child-src 'self' blob:",
-  "object-src 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "frame-ancestors 'none'",
-  ...(isDev ? [] : ["upgrade-insecure-requests"]),
-].join("; ");
-
+// The CSP is built per request in src/middleware.ts: it carries a nonce, and
+// Next.js reads it from the CSP of the request to stamp the scripts it
+// injects. A static CSP here would override it and break the hydration.
 const securityHeaders = [
-  { key: "Content-Security-Policy", value: csp },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
@@ -42,6 +16,7 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  devIndicators: false,
   // Always inlined at build time (default "false"), even when the variable is unset.
   env: {
     NEXT_PUBLIC_PASSWORD_RESET_ENABLED: process.env.NEXT_PUBLIC_PASSWORD_RESET_ENABLED ?? "false",

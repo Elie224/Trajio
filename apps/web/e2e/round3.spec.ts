@@ -8,7 +8,7 @@ async function headerLoggedIn(page: import("@playwright/test").Page) {
   await expect(page.locator("header").getByRole("button", { name: "Déconnexion" }).locator("visible=true")).toBeVisible({ timeout: 5000 });
 }
 
-test("signup via UI, header logged in, logout clears recent searches, login again", async ({ page }) => {
+test("signup requires manual login, logout clears recent searches, login again", async ({ page }) => {
   const email = `e2e-ui-${Date.now()}@example.com`;
   await page.goto("/signup");
   await page.locator("#signup-firstname").fill("Test");
@@ -17,8 +17,15 @@ test("signup via UI, header logged in, logout clears recent searches, login agai
   await page.locator("#signup-password").fill(PASSWORD);
   await page.locator("#signup-password-confirm").fill(PASSWORD);
   await page.locator('form button[type="submit"]').click();
-  await page.waitForURL((u) => u.pathname === "/trips");
-  await expect.soft(page.locator("header").getByRole("button", { name: "Déconnexion" }).locator("visible=true"), "header after signup (no reload)").toBeVisible({ timeout: 5000 });
+  await page.waitForURL((u) => u.pathname === "/login");
+  await expect(page.getByRole("status")).toContainText("Saisissez votre email");
+  await expect(page.locator("#login-email")).toHaveValue("");
+  await expect(page.locator("#login-password")).toHaveValue("");
+  expect((await page.context().cookies()).filter((cookie) => cookie.name.startsWith("trajio_"))).toEqual([]);
+  await page.locator("#login-email").fill(email);
+  await page.locator("#login-password").fill(PASSWORD);
+  await page.getByRole("button", { name: /^Se connecter/ }).click();
+  await page.waitForURL((u) => u.pathname !== "/login");
   await page.evaluate(([k, v]) => localStorage.setItem(k, v), [RECENT, SEED]);
   await page.reload();
   await headerLoggedIn(page);
@@ -43,6 +50,35 @@ test("signup via UI, header logged in, logout clears recent searches, login agai
   await page.waitForURL((u) => u.pathname === "/");
   expect(await page.evaluate((k) => localStorage.getItem(k), RECENT), "recent after deletion").toBeNull();
 });
+
+for (const verificationRequired of [false, true]) {
+  test(`signup never logs in automatically (email verification: ${verificationRequired})`, async ({ page }) => {
+    const loginRequests: string[] = [];
+    page.on("request", (request) => {
+      if (request.url().endsWith("/auth/login")) loginRequests.push(request.url());
+    });
+    await page.route("**/api/v1/auth/register", (route) => route.fulfill({
+      status: 201,
+      contentType: "application/json",
+      body: JSON.stringify({ message: "Demande reçue.", verification_required: verificationRequired }),
+    }));
+    await page.goto("/signup");
+    await page.locator("#signup-firstname").fill("Test");
+    await page.locator("#signup-lastname").fill("Inscription");
+    await page.locator("#signup-email").fill("signup-regression@example.com");
+    await page.locator("#signup-password").fill(PASSWORD);
+    await page.locator("#signup-password-confirm").fill(PASSWORD);
+    await page.locator('form button[type="submit"]').click();
+    await page.waitForURL((url) => url.pathname === "/login");
+    await expect(page.getByRole("status")).toContainText(
+      verificationRequired ? "confirmer votre adresse" : "Saisissez votre email",
+    );
+    await expect(page.locator("#login-email")).toHaveValue("");
+    await expect(page.locator("#login-password")).toHaveValue("");
+    expect(loginRequests).toEqual([]);
+    expect((await page.context().cookies()).filter((cookie) => cookie.name.startsWith("trajio_"))).toEqual([]);
+  });
+}
 
 test("API down: messages shown (no raw 'Failed to fetch')", async ({ page }) => {
   test.skip(process.env.API_DOWN !== "1", "run with the API stopped");

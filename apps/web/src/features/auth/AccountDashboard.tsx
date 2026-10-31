@@ -172,16 +172,16 @@ export function AccountDashboard() {
                   {user.email_verified_at ? "Email vérifié" : "Email non vérifié"}
                 </Badge>
               </div>
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+              <dl className="grid grid-cols-1 gap-x-4 gap-y-3 text-sm sm:grid-cols-2">
                 <div>
                   <dt className="text-page-muted">Nom</dt>
-                  <dd className="font-medium text-page-text">
+                  <dd className="font-medium text-page-text [overflow-wrap:anywhere]">
                     {user.first_name} {user.last_name}
                   </dd>
                 </div>
                 <div>
                   <dt className="text-page-muted">Email</dt>
-                  <dd className="font-medium text-page-text">{user.email}</dd>
+                  <dd className="font-medium text-page-text [overflow-wrap:anywhere]">{user.email}</dd>
                 </div>
                 <div>
                   <dt className="text-page-muted">Rôle</dt>
@@ -464,7 +464,7 @@ export function AccountDashboard() {
                           <>
                             <button
                               type="button"
-                              className="min-h-11 text-sm font-medium text-emerald-700 hover:text-emerald-800"
+                              className="min-h-11 text-sm font-medium text-primary-strong hover:text-primary-hover"
                               onClick={async () => {
                                 await acceptBooking(booking.id);
                                 await refresh();

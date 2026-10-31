@@ -181,11 +181,17 @@ export function OfferTripForm() {
                 required
                 role="pickup"
                 value={originLabel}
-                onChange={setOriginLabel}
+                onChange={(value) => {
+                  setOriginLabel(value);
+                  setOriginPoint(undefined);
+                }}
+                onSelectPlace={(place) => setOriginPoint([place.longitude, place.latitude])}
                 recent={recent}
                 onPickRecent={(entry) => {
                   setOriginLabel(entry.pickup);
                   setDestinationLabel(entry.dropoff);
+                  setOriginPoint(undefined);
+                  setDestinationPoint(undefined);
                 }}
                 onClearRecent={() => {
                   setRecent([]);
@@ -200,11 +206,17 @@ export function OfferTripForm() {
                 required
                 role="dropoff"
                 value={destinationLabel}
-                onChange={setDestinationLabel}
+                onChange={(value) => {
+                  setDestinationLabel(value);
+                  setDestinationPoint(undefined);
+                }}
+                onSelectPlace={(place) => setDestinationPoint([place.longitude, place.latitude])}
                 recent={recent}
                 onPickRecent={(entry) => {
                   setOriginLabel(entry.pickup);
                   setDestinationLabel(entry.dropoff);
+                  setOriginPoint(undefined);
+                  setDestinationPoint(undefined);
                 }}
                 onClearRecent={() => {
                   setRecent([]);

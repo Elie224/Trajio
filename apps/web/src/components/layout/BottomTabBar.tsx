@@ -89,7 +89,7 @@ export function BottomTabBar() {
                 aria-current={active ? "page" : undefined}
                 className={
                   "relative flex h-16 min-h-12 flex-col items-center justify-center gap-0.5 px-1 text-center text-[11px] font-medium leading-tight " +
-                  (active ? "text-primary-strong" : "text-page-muted hover:text-page-text")
+                  (active ? "bg-active text-primary-strong" : "text-page-muted hover:text-page-text")
                 }
               >
                 <span className="relative">

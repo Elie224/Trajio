@@ -25,10 +25,18 @@ export function LoginForm() {
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
+    const registration = new URLSearchParams(window.location.search).get("registration");
+    if (registration === "complete" || registration === "verify-email") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reads browser-only URL once
+      setNotice(
+        registration === "verify-email"
+          ? "Demande d'inscription reçue. Consultez vos emails pour confirmer votre adresse avant de vous connecter."
+          : "Inscription terminée. Saisissez votre email et votre mot de passe pour vous connecter.",
+      );
+    }
     try {
       if (sessionStorage.getItem(PASSWORD_RESET_FLAG)) {
         sessionStorage.removeItem(PASSWORD_RESET_FLAG);
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- reads browser-only storage once
         setNotice("Mot de passe modifié, vous avez été déconnecté de tous vos appareils.");
       }
     } catch {
